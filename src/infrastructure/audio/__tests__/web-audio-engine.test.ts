@@ -339,7 +339,9 @@ describe('WebAudioEngine.updateNowPlaying (stage 10)', () => {
       // Artwork also flows through; jsdom's fake-class assignment is enough
       // to assert the bridge did not strip it.
       expect(
-        (fakeMediaSession.metadata!.artwork ?? []).map((a) => a.src),
+        (fakeMediaSession.metadata!.artwork ?? []).map((a) =>
+          (a as { src: string }).src,
+        ),
       ).toEqual(['asset://cover/tr_01']);
     } finally {
       restore();

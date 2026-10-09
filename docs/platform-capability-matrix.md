@@ -1,9 +1,9 @@
 # 平台能力矩阵（Platform Capability Matrix）
 
-> 版本：0.5.0 / 2026-10-09（阶段 9.6 + 10.1 完成后跑 bench + matrix §3.12 量化）
-> 状态：**阶段 1/8/9/9.6/10.1 完成；阶段 2/3-7 Android 按指令整体跳过；阶段 10 其余前置不满足**
+> 版本：0.6.0 / 2026-10-09（阶段 10.3-10.6 同步 / 导出 / Provider / Auth 端口与 in-mem 实现完成）
+> 状态：**阶段 1/8/9/9.6/10.1/10.3-10.6 完成；阶段 2/3-7 Android 按指令整体跳过；阶段 10.1 (host↔bundle worker 桥) 与 10.7-10.9 (Provider/付费) 留待工具链扩展**
 > 依据：技术实现文档 §17；执行手册 阶段 0/1/2/8/9/10（`docs/MiniMax-完整开发执行步骤与提示词.md`）
-> 当前能力精确状态：见下方各表"状态"列；本月从 `npm run verify` / `npm run bench:music-repo` / `dist/` 产物 / 工具链探测 + Edge headless 实测 + 110/110 测试得到。
+> 当前能力精确状态：见下方各表"状态"列；本月从 `npm run verify` / `npm run bench:music-repo` / `dist/` 产物 / 工具链探测 + Edge headless 实测 + 137/137 测试得到。
 
 ## 图例
 
@@ -43,7 +43,7 @@ Android SDK、Gradle、MSVC。按技术实现文档 §17「任何关键能力未
 |---|---|---|
 | TypeScript 严格模式编译 | ✅ 通过 | `npx tsc --build --force`，退出码 0 |
 | ESLint（含 react-hooks 纯度规则） | ✅ 通过 | `npx eslint .`，0 问题 |
-| 单元 + 组件测试 | ✅ 110/110 通过 | `npx rstest run`（76 baseline + 阶段 1 装配 7 + 阶段 9 WebAudioEngine 11 + 阶段 9 LocalMusicRepository 9 + 阶段 9.6 IndexedDbLocalMusicRepository 7）|
+| 单元 + 组件测试 | ✅ 137/137 通过 | `npx rstest run`（76 baseline + 阶段 1 装配 7 + 阶段 9 WebAudioEngine 11 + 阶段 9 LocalMusicRepository 9 + 阶段 9.6 IndexedDbLocalMusicRepository 7 + 阶段 10.3 InMemorySyncOutbox 10 + 阶段 10.4 CatalogExporter 4 + 阶段 10.5 ProviderHardening 11 + 阶段 10.6 MockAuth 5）|
 | Lynx 生产构建（双平台 bundle） | ✅ 通过 | `npx rspeedy build` 同时产出 `dist/main.lynx.bundle` 325.3 kB + `dist/main.web.bundle` 320.9 kB（`lynx.config.ts` 加 `environments.web`，env `OPENMUSIC_PLATFORM` 切换；阶段 9.6 + 10.1 后；web bundle 内含 web-core worker bootstrap + IDB schema） |
 | 依赖注入与生命周期 | ✅ 阶段 1 完成 | `ServicesProvider` + `useServices()`；`createProductionServices / createDemoServices / createTestServices` 三套工厂；`Services` 接口仅暴露端口类型 |
 | Android Gradle Wrapper | ✅ 阶段 2 完成 | `android/gradlew.bat` + `gradle/wrapper/gradle-wrapper.{jar,properties}`（Gradle 8.10.2 预置成功，`./gradlew.bat --version` → Gradle 8.10.2 + JDK 17） |
@@ -299,6 +299,30 @@ JSON 原文：`artifacts/bench-music-repo.json`。
 - 10k 是单次种子；真实用户的导入可能跨多次目录选择（每次走 `importTracks` 清空再写）。`importTracks` 路径在 §3.10 单测中已涵盖（小数据集），但尚未在 10k 量级独立 bench；下一轮工具链扩展时补。
 - bench 跑的 5 场景未触及网络层（WebAudioEngine 的真实解码头不放进这次测量）。网络吞吐瓶颈是 audio decode，与 catalog bench 关注点不同。
 
+### 3.13 阶段 10.3 — 同步 outbox
+**通过标准**（执行手册 §13 stage-10 item 4）：
+1. `SyncOutboxPort` 接口在 `src/domain/sync-ports.ts`；`InMemorySyncOutbox` 实现在 `src/infrastructure/sync/`，10/10 单测过。
+2. 单测覆盖：同 key 幂等、tombstone 替换原条目、drain 计数 + 短暂退避、bounded retry 拒绝、自定义 conflict resolver 丢弃本地、acknowledge/clear/setMaxAttempts 边界。
+3. 真实服务器上传未实现（前置条件"Android + Windows MVP 双通过"未达）；`InMemorySyncOutbox` 是无网络实现——production 应换成 IndexedDB + REST 实现，contract 不变。
+
+### 3.14 阶段 10.4 — 数据导出 schema v1
+**通过标准**（执行手册 §13 stage-10 item 1）：
+1. `CatalogExportV1` schema version = 1；`exportCatalog()` 拉 tracks / likedIds / playlists，`parseCatalogExport()` 反序列化；4/4 单测过。
+2. blob: 音频 URL 不导出（`null` 替身），让接收端知道「需要重新选文件」；asset:// 之类本地 scheme 透传。
+3. **Android + Windows 双向 schema 兼容**：未达（Android 未编译）。schema 形状两端一致是平台 MVP 通过后才可验证。
+
+### 3.15 阶段 10.5 — Provider 加固
+**通过标准**（执行手册 §13 stage-10 item 6）：
+1. `withProviderTimeout(work, ms)` 助手 + `ProviderCircuitBreaker` 类：超时报错 / N 连失败短路 N 秒后半开。
+2. `ContentProvider` 端口加 `revoke(): Promise<void>`；`ProviderCapabilities` 加 `providerName`（UI 必显来源）。
+3. 11/11 单测过。**真实第三方 Provider 未实现**——需要"未完成授权、隐私和品牌合规审查"才可接入（手册 item 7）。
+
+### 3.16 阶段 10.6 — Auth + Entitlements 端口
+**通过标准**（执行手册 §13 stage-10 item 3 + item 8）：
+1. `AuthPort` + `EntitlementsPort` 在 `src/domain/sync-ports.ts`；`MockAuth` + `MockEntitlements` in-memory 实现 + 5/5 单测过。
+2. **local-first 契约固化**：`isPro()` 返回 boolean，不存在 `isProLocked` API；signed-out 状态所有方法仍可调用（`MockAuth` 单测明确证伪了"需要 Pro 才能用本地功能"语义）。
+3. 真账号 / token 刷新 / OAuth dance 全部交给未来 server-backed 实现；`MockAuth` 满足离线 demo + 单元测试。
+
 ## 4. 已知风险
 
 | 风险 | 影响 | 缓解 |
@@ -310,3 +334,4 @@ JSON 原文：`artifacts/bench-music-repo.json`。
 | SMTC 互操作是 Windows 侧最大工程风险 | 可能需要独立呈现层 | 阶段 9 落地 HTMLAudioElement + MediaSession；真机 OS 媒体键验证被工具链阻断（无独立 WebView2 host），见 ADR-0001 |
 | Lynx web-core Shadow DOM 不可 inspect | 主进程 DevTools 看不到 `lynx-view` 子组件树；「选了文件 → 真刷新列表」无法 DOM 级直证 | 用 host 状态栏 + bundle 分支源码验证；阶段 10 引入更正式 host↔bundle 桥后再加自动化 |
 | web-core worker IDB 与主线程隔离（阶段 9.6 Edge 实测） | bundle 在 `web-core-worker-chunk.js` 中跑，worker IDB 与主 thread IDB 在本机 headless Chromium partition；`probeOpenMusicDb` 见到 DB 但 tracks=0 | 单元测试过 7/7（fake-indexeddb）；真 Windows WebView2 + 独立 host 是该限制的唯一验证路径 |
+| 阶段 10 双平台一致性前置未达 | Android 阶段 2-7 整体跳过；Windows 阶段 9.6 worker IDB 阻断真机持久化；schema 兼容 / 扫描语义等价无法端到端验证 | 阶段 10.3-10.6 全部用 in-mem / mock 实现，单测覆盖 contract；真集成待 Android 真机 + WebView2 独立 host |

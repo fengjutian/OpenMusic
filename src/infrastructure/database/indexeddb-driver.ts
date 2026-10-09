@@ -190,21 +190,44 @@ function wrap(database: IDBDatabase): OpenMusicDb {
   };
 }
 
-function runOnTx<T>(
+/**
+ * Internal `runOnTx` — exported only so the unit test can drive abort paths.
+ * Resolves only after `tx.oncomplete` fires; rejects on `tx.onerror` or
+ * `tx.onabort`. This fixes a real bug where the previous version resolved
+ * the outer promise as soon as the caller's `fn(objectStore)` returned,
+ * which can race with a deferred `tx.onerror` from a constraint violation
+ * or an `onversionchange` abort (real IDB fires `onerror` *after* the
+ * individual request's `onsuccess` in some scenarios).
+ */
+export function runOnTx<T>(
   database: IDBDatabase,
   store: OpenMusicStore,
   mode: IDBTransactionMode,
   fn: (objectStore: IDBObjectStore) => Promise<T>,
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const tx = database.transaction(store, mode);
-    tx.oncomplete = () => {
-      /* completion handled by fn's awaited promise */
+    let settled = false;
+    const settle = (
+      action: () => void,
+    ): void => {
+      if (settled) return;
+      settled = true;
+      action();
     };
-    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB tx failed.'));
-    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB tx aborted.'));
+    const tx = database.transaction(store, mode);
+    let result: T;
+    tx.oncomplete = () => settle(() => resolve(result));
+    tx.onerror = () =>
+      settle(() => reject(tx.error ?? new Error('IndexedDB tx failed.')));
+    tx.onabort = () =>
+      settle(() => reject(tx.error ?? new Error('IndexedDB tx aborted.')));
     const objectStore = tx.objectStore(store);
-    fn(objectStore).then(resolve, reject);
+    fn(objectStore).then(
+      (value) => {
+        result = value;
+      },
+      (err) => settle(() => reject(err)),
+    );
   });
 }
 
