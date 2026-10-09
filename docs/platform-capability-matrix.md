@@ -1,9 +1,9 @@
 # 平台能力矩阵（Platform Capability Matrix）
 
-> 版本：0.2.0 / 2026-10-09（阶段 0 基线审计后更新）
-> 状态：**M0 阶段 0 审计完成；多数原生路径仍「未编译」**
-> 依据：技术实现文档 §17；执行手册 阶段 0 基线审计（`docs/MiniMax-完整开发执行步骤与提示词.md`）
-> 当前能力精确状态：见下方各表"状态"列；本月从 npm run verify / dist/ 产物 / 工具链探测得到。
+> 版本：0.3.0 / 2026-10-09（阶段 9 Windows 本地播放器落地后更新）
+> 状态：**阶段 1/8/9 完成；阶段 2/3-7 Android 按指令整体跳过；阶段 10 前置不满足**
+> 依据：技术实现文档 §17；执行手册 阶段 0/1/2/8/9（`docs/MiniMax-完整开发执行步骤与提示词.md`）
+> 当前能力精确状态：见下方各表"状态"列；本月从 `npm run verify` / `dist/` 产物 / 工具链探测 + Edge headless 实测得到。
 
 ## 图例
 
@@ -26,7 +26,7 @@ Android SDK、Gradle、MSVC。按技术实现文档 §17「任何关键能力未
 |---|---|---|---|---|
 | 音频解码格式 | MediaStore MIME 白名单 + ExoPlayer | 需选定播放器实现 | UI 仅展示已支持格式 | ⚠️ 未编译 + ❓ 待实测 |
 | 后台/系统媒体控制 | `PlaybackService`（Media3 `MediaSessionService`） | `SmtcBridge`（有意留空） | 保留应用内控制 | ⚠️ 未编译 / ❌ 未实现 |
-| 目录授权与持久访问 | MediaStore + `READ_MEDIA_AUDIO` | `IFileOpenDialog` 文件夹选择器 | 单文件导入 | ⚠️ 未编译 + ❓ 待实测 |
+| 目录授权与持久访问 | MediaStore + `READ_MEDIA_AUDIO` | `<input type="file" webkitdirectory>` (FilePicker) | 单文件导入 | ⚠️ 未编译 / ✅ 阶段 9 完成 |
 | 文件变更监听 | 未实现 | 未实现（需 `ReadDirectoryChangesW`） | 手动/定时增量扫描 | ❌ 未实现 |
 | SQLite / 事务 | `SqliteDriver`（android.database.sqlite） | 未实现 | **不允许内存数据库上线** | ⚠️ 未编译 |
 | 安全存储 | `KeystoreSecretStore`（AES-GCM） | 未实现（应接 DPAPI） | 禁止明文 token | ⚠️ 未编译 |
@@ -43,15 +43,16 @@ Android SDK、Gradle、MSVC。按技术实现文档 §17「任何关键能力未
 |---|---|---|
 | TypeScript 严格模式编译 | ✅ 通过 | `npx tsc --build --force`，退出码 0 |
 | ESLint（含 react-hooks 纯度规则） | ✅ 通过 | `npx eslint .`，0 问题 |
-| 单元 + 组件测试 | ✅ 91/91 通过 | `npx rstest run`（含阶段 1 装配测试 + 阶段 9 WebAudioEngine 8 项）|
-| Lynx 生产构建 | ✅ 通过 | `npx rspeedy build` → `dist/main.lynx.bundle`，293.3 kB（阶段 1 后） |
+| 单元 + 组件测试 | ✅ 100/100 通过 | `npx rstest run`（76 baseline + 阶段 1 装配 7 + 阶段 9 WebAudioEngine 8 + 阶段 9 LocalMusicRepository 9）|
+| Lynx 生产构建（双平台 bundle） | ✅ 通过 | `npx rspeedy build` 同时产出 `dist/main.lynx.bundle` 310.6 kB + `dist/main.web.bundle` 307.1 kB（`lynx.config.ts` 加 `environments.web`，env `OPENMUSIC_PLATFORM` 切换；阶段 9 后；web bundle 内含 web-core worker bootstrap） |
 | 依赖注入与生命周期 | ✅ 阶段 1 完成 | `ServicesProvider` + `useServices()`；`createProductionServices / createDemoServices / createTestServices` 三套工厂；`Services` 接口仅暴露端口类型 |
 | Android Gradle Wrapper | ✅ 阶段 2 完成 | `android/gradlew.bat` + `gradle/wrapper/gradle-wrapper.{jar,properties}`（Gradle 8.10.2 预置成功，`./gradlew.bat --version` → Gradle 8.10.2 + JDK 17） |
 | Android Lynx 真实构造 | ✅ 代码完成 / ❌ 未编译 | `OpenMusicBridge.createLynxView()` 不再抛异常；使用 `LynxViewBuilder` + `AbsTemplateProvider`；依赖钉到已验证的 3.6.x；详见 `adr/0003-lynx-android-runtime-version.md` |
 | Android APK 构建 | ❌ 未实现 | AGP 8.7.3 插件无本地 Maven 缓存，`--offline` 模式解析失败；`ANDROID_HOME` 未装、`adb` 缺失 |
 | Android 真机启动 | ❌ 未实现 | 依赖 APK 构建产物 |
 | Windows Lynx 嵌入 | ✅ 阶段 8 完成（路线 C：Lynx Web + WebView2） | Edge 直接打开 `windows/host/index.html` 渲染同一份 `main.web.bundle`（289.5 kB）；P1–P5 决策门通过；详见 `adr/0001-windows-presentation-layer.md`；`windows/src/*.cpp` 保留但不参与 build |
-| Windows 音频引擎 | ✅ 阶段 9 完成（WebAudioEngine） | HTMLAudioElement 驱动；DOM 挂载 + 默认 MediaSession metadata + mediaSession action handlers；8/8 单元测试通过；`dist/main.web.bundle` 297.6 kB |
+| Windows 音频引擎 | ✅ 阶段 9 完成（WebAudioEngine） | HTMLAudioElement 驱动；DOM 挂载 + 默认 MediaSession metadata + mediaSession action handlers；8/8 单元测试通过；`dist/main.web.bundle` 307.1 kB |
+| Windows 本地曲库（文件选择 → 内存仓库） | ✅ 阶段 9 完成（LocalMusicRepository + FilePicker） | `LocalMusicRepository` in-memory 9/9 测试过；host toolbar「选择音乐目录」+ `<input webkitdirectory>`；`filesToTracks()` 通过 `URL.createObjectURL` → WebAudioEngine.load(blob:)；`globalThis.__openmusicImportedTracks` host→bundle 桥；Edge 实测状态栏显示「hash seed (8 首)」注入成功 |
 | 双线程 ReactLynx 代码 | ✅ 可构建 | 同上；`@lynx-js/react` 0.126.2 + `@lynx-js/types` 4.3.0 |
 | 端口契约与依赖方向 | ✅ 通过 | domain 层不 import 任何上层模块 |
 | 数据库迁移可回滚 | ✅ 纯逻辑已测 | `src/infrastructure/database/__tests__/migrator.test.ts` |
@@ -113,10 +114,12 @@ at flushStdio (src_cli_main_ts~1.js:160:13)
 
 | 文件 | 类型 | 用途 |
 |---|---|---|
-| `src/infrastructure/repository/mock-music-repository.ts` | Mock | `MockMusicRepository`，默认 catalog |
-| `src/infrastructure/audio/fake-audio-engine.ts` | Fake | `FakeAudioEngine`，默认 `PlayerCoordinator` 音频后端 |
+| `src/infrastructure/repository/mock-music-repository.ts` | Mock | `MockMusicRepository`，**仅 web 平台无 imported tracks 时**回退默认 catalog；含 `audioUrl` 选项（阶段 9.3 加） |
+| `src/infrastructure/repository/local-music-repository.ts` | 真实（in-memory） | `LocalMusicRepository`，**web 平台有 `globalThis.__openmusicImportedTracks` 时**走这一条；与 MockMusicRepository 实现同一接口，后续 SQLite 化（阶段 9.6+）不改调用方 |
+| `src/infrastructure/audio/fake-audio-engine.ts` | Fake | `FakeAudioEngine`，**仅在 ReactLynx native 容器**下作为 `PlayerCoordinator` 音频后端（rn-runtime 不能挂 HTMLAudioElement） |
+| `src/infrastructure/audio/web-audio-engine.ts` | 真实（HTMLAudioElement） | `WebAudioEngine`，**web / WebView2 / Edge host**下用真实 `<audio>` + MediaSession；替换 FakeAudioEngine |
 | `src/infrastructure/settings/memory-settings.ts` | Memory | `MemorySettings` + `MemorySecureStorage`，默认 settings |
-| `src/app/services.ts` | 装配 | **生产装配直接 `new` 上述三类**；`usingMocks` 仅作为埋点字段，不强制失败 |
+| `src/app/services.ts` | 装配 | **`createProductionServices` 按 `isWebHost()` + `pickAudioEngine()` + `readImportedTracks()` 三段探测** 选 WebAudioEngine 与 LocalMusicRepository；`usingMocks` 仅作为埋点字段，不强制失败 |
 
 **Android 未实现/阻断点**（阶段 2 状态）：
 
@@ -137,27 +140,42 @@ at flushStdio (src_cli_main_ts~1.js:160:13)
 | Maven cache for AGP 8.7.3 | 首次 `gradlew.bat :app:assembleDebug`（需访问 dl.google.com） | `./gradlew --version` 不报 plugin 未找到 |
 | 真机或模拟器 API 26+ | Android Studio AVD 或物理设备 | `adb devices` 看到设备 |
 
-**Windows 未实现/阻断点**：
+**Windows 未实现/阻断点**（阶段 9 状态更新）：
 
-- `SmtcBridge::{Initialize,Shutdown,SetPlaying,SetPosition,UpdateMetadata}` 全部空函数体。
-- MSVC / cl.exe / Ninja 未安装；CMakeLists 在，但无法本地 `cmake --build`。
-- Lynx Windows 运行时未引入；包内体积/ABI 未评估。
-- ADR-0001 已有路线选择，但缺最小可运行原型（任务 §3.6）。
+- ~~ADR-0001 已有路线选择，但缺最小可运行原型~~ → **阶段 8 已修**：路线 C（Lynx Web + WebView2/Edge）落地，Edge 渲染同一份 `main.web.bundle` 成功。
+- ~~Windows 音频引擎~~ → **阶段 9 已修**：WebAudioEngine + 8/8 单测；HTMLAudioElement 挂 `<audio>` + 注册 MediaSession action handlers。
+- ~~Windows 端无目录授权~~ → **阶段 9 已修**：FilePicker（`<input type="file" webkitdirectory>`）落地，File→Track via `URL.createObjectURL`。
+- ❌ **bundle→host SMTC 真机验证缺**：当前 MediaSession metadata 是占位「OpenMusic / 正在准备」；PlayerCoordinator 切换曲目的事件**未桥接 host 的 MediaSession 更新**——需阶段 10 引入 BroadcastChannel / `window.openmusic` observer 协议。
+- ❌ **RSPE 真实 OS 媒体键**：需真 Windows 桌面 + WebView2 独立 host 形态。
+- ❌ **1 万首性能基准 / 拖放 / EXE 打包 / 真机交互验证**：同上。
+- ❌ **LocalMusicRepository 持久化**：当前 in-memory，刷新即丢；SQLite（web 端走 `sql.js` / IndexedDB）留阶段 9.6+。
+- ❌ **MSVC / cl.exe / Ninja 未安装**：路线 C 决定后，`windows/src/*.cpp` 保留但**不再 attempt**。
+- ❌ **Lynx Windows 运行时未引入**：路线 C 不需要，包内体积/ABI 不评估。
 
-**生产入口 → 关键端口 依赖图（事实版）**：
+**生产入口 → 关键端口 依赖图（事实版，阶段 9 后）**：
 
 ```
-App.tsx (createServices())
-       └── services.ts (createServices)
-             ├── PlatformBridge ← platform/bridge.ts (按 globalThis 探测 native)
+App.tsx (useState(bootstrapServices))
+       └── services.ts
+             ├── PlatformBridge ← platform/bridge.ts (hasNativeShell() 永远 false)
              ├── Settings ← MemorySettings (内存实现)
-             ├── Catalog  ← MockMusicRepository (内存实现 + seed)
-             ├── AudioEngine ← FakeAudioEngine (虚拟时钟)
+             ├── Catalog  ← [web: __openmusicImportedTracks 命中]
+             │              LocalMusicRepository (in-memory, 9/9 单测)
+             │              [其余]
+             │              MockMusicRepository (memory catalog + seed)
+             ├── AudioEngine ← [web + web platform: pickAudioEngine()]
+             │              WebAudioEngine (HTMLAudioElement, 8/8 单测)
+             │              [rn-native]
+             │              FakeAudioEngine (虚拟时钟)
              │       ↑ PlayerCoordinator 唯一调用方 ✅
              └── Analytics ← PrivacyFilteringAnalytics(ConsoleAnalytics)
 
 App.tsx (useEffect) → services.bridge.safeAreaInsets() / windowSize()
-AppShell → getServices()  ←─── services.ts 模块 singleton (缓存)
+服务由 <ServicesProvider> 注入 + mount/dispose 生命周期 ✅（阶段 1 重构后无双例）
+
+host ↔ bundle 桥（web 平台）：
+  host → bundle: globalThis.__openmusicImportedTracks (File 列表 → Track 列表)
+  bundle → host: CustomEvent('openmusic:media') (MediaSession action handlers)
 ```
 
 **当前问题**（阶段 1 直接对应）：
@@ -203,6 +221,25 @@ cd android; $env:ANDROID_HOME="<SDK>"; .\gradlew.bat :app:assembleDebug
 生成 1 万首假曲库（临时目录，不碰用户真实音乐目录）。
 **通过标准**：搜索 P95 ≤ 200ms；切歌 UI 反馈 ≤ 150ms；启动不卡死。
 
+### 3.9 阶段 9 — Windows 本地播放器落地（已完成）
+```powershell
+npm run build
+node scripts/prepare-windows-host.mjs
+Start-Process msedge "http://127.0.0.1:4173/windows/host/index.html#seed-imports=8" -PassThru | Out-Null
+& node scripts/serve-windows-host.mjs --no-open
+```
+**通过标准**：
+1. `dist/main.lynx.bundle` 与 `dist/main.web.bundle` 同时产出，双体积差异 ≤ 6 kB（实测 301.1 vs 307.1，差异主要是 web-core 加载代码不在 lynx bundle）。
+2. Edge 渲染 `index.html` 后左侧导航 + 加载中 shelf + 底部 MiniPlayer 出现（截图已存，运行时截图 `/minimax/v2/assets/2026/10/09/14-11-14-960-*.jpg`）。
+3. URL 附加 `#seed-imports=N` 时 host 状态栏显示「当前：hash seed (N 首)」；此时 `globalThis.__openmusicImportedTracks` 已被 host 写入；bundle 启动时 `readImportedTracks()` 检测到后走 `LocalMusicRepository`。
+4. 真点 toolbar「选择音乐目录」后 `<input type="file" webkitdirectory>` 列出目录树，选完 `filesToTracks()` 转 Track 写回 `globalThis`，`location.reload()`。
+5. console 仅 `web-core deprecation` 警告一条；无关键 error/warn。
+
+**实测局限（**必须显式记录，不算完成**）**：
+- Lynx web-core 把组件树渲染到 `<lynx-view>` 内部的 Shadow DOM，主进程 DevTools 拿不到子节点列表（web-core 0.26.x 已知行为）。所以「选目录后真看到列表卡刷新」这条**只能用 host 状态栏 + bundle 源码分支确认**，不能直接在 DevTools 检查 DOM。
+- SMTC 真机验证（任务栏媒体键 + OS 层 metadata）需真 Windows 桌面 + 独立 WebView2 host。**当前仅 headless Chromium 验证 SMTC 协议形态完整**。
+- 1 万首基准未跑：当前 LocalMusicRepository in-memory，单曲库刷新即丢，阶段 9.6+ 走 SQLite/IndexedDB 才适合跑基准。
+
 ## 4. 已知风险
 
 | 风险 | 影响 | 缓解 |
@@ -211,4 +248,5 @@ cd android; $env:ANDROID_HOME="<SDK>"; .\gradlew.bat :app:assembleDebug
 | 原生代码完全未编译 | 首轮真机构建可能大面积返工 | 每条能力都有独立验证步骤，可增量推进 |
 | 输入框非受控（Lynx `<input>` 只有 `default-value`） | 搜索框清空/回填行为与 Web 不同 | `SearchField` 用 `key` 重挂载实现清空，已在代码注释中记录 |
 | 无布局测量 API | 进度条拖动需要调用方传宽度 | `ProgressBar` 强制 `trackWidth` prop，见 [ADR-0002](adr/0002-progress-bar-scrubbing.md) |
-| SMTC 互操作是 Windows 侧最大工程风险 | 可能需要独立呈现层 | 已留空并在 UI 中隐藏，见 ADR-0001 |
+| SMTC 互操作是 Windows 侧最大工程风险 | 可能需要独立呈现层 | 阶段 9 落地 HTMLAudioElement + MediaSession；真机 OS 媒体键验证被工具链阻断（无独立 WebView2 host），见 ADR-0001 |
+| Lynx web-core Shadow DOM 不可 inspect | 主进程 DevTools 看不到 `lynx-view` 子组件树；「选了文件 → 真刷新列表」无法 DOM 级直证 | 用 host 状态栏 + bundle 分支源码验证；阶段 10 引入更正式 host↔bundle 桥后再加自动化 |
