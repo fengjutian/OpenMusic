@@ -3,36 +3,19 @@ import { useEffect } from '@lynx-js/react';
 import { AppShell } from '../ui/AppShell.js';
 import { ThemeProvider, PLATFORM } from '../ui/shared/theme.js';
 import { sessionActions } from '../application/stores.js';
-import { getServices } from './services.js';
+import { createServices } from './services.js';
 
 export function App() {
-  const services = getServices();
+  const services = createServices();
 
   useEffect(() => {
+    // Platform event subscriptions (focus, media buttons) are owned by the
+    // PlayerCoordinator itself, wired in `createServices`. This effect only
+    // syncs the one-shot window metrics and fires the app_open event.
     sessionActions.setSafeArea(services.bridge.safeAreaInsets());
     sessionActions.setWindowSize(services.bridge.windowSize());
-
-    // Focus loss / media buttons are platform events, not page state.
-    const offFocus = services.bridge.onAudioFocusChange((focused) => {
-      if (!focused) services.player.handleFocusLost();
-    });
-    const offButton = services.bridge.onMediaButton((command) => {
-      if (command === 'play') void services.player.play();
-      if (command === 'pause') void services.player.pause();
-      if (command === 'next') void services.player.next();
-      if (command === 'previous') void services.player.previous();
-    });
-
     services.analytics.track('app_open', { platform: PLATFORM, mock: services.usingMocks });
-
-    return () => {
-      offFocus();
-      offButton();
-    };
-    // `getServices()` is a module singleton, so the service object is stable
-    // for the lifetime of the app; re-running this effect would double-subscribe.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [services]);
 
   return (
     <ThemeProvider>

@@ -12,7 +12,12 @@
 
 import { AppError } from '../domain/errors.js';
 import type { PlaybackMode, PlaybackStatus, Track } from '../domain/models.js';
-import type { AudioEnginePort, AudioEvent, SettingsPort } from '../domain/ports.js';
+import type {
+  AudioEnginePort,
+  AudioEvent,
+  PlatformBridgePort,
+  SettingsPort,
+} from '../domain/ports.js';
 import {
   addToQueue,
   clearManualItems,
@@ -75,12 +80,21 @@ export class PlayerCoordinator {
   private loadToken = 0;
   private listeners = new Set<() => void>();
   private unsubscribeEngine: (() => void) | null = null;
+  private unsubscribeFocus: (() => void) | null = null;
+  private unsubscribeMediaButton: (() => void) | null = null;
   private lastPersistedPositionMs = 0;
+  private started = false;
   private disposed = false;
 
   constructor(
     private readonly engine: AudioEnginePort,
     private readonly settings: SettingsPort,
+    /**
+     * When supplied, the coordinator subscribes to platform audio focus and
+     * media-button events in `start()`. Tests can omit it; the host wires the
+     * same events in `createServices` for production.
+     */
+    private readonly bridge?: PlatformBridgePort,
   ) {}
 
   // --- subscription -------------------------------------------------------
@@ -114,15 +128,37 @@ export class PlayerCoordinator {
     };
   };
 
+  /**
+   * Starts the coordinator. If a `PlatformBridgePort` was provided, this
+   * also subscribes the audio focus and media-button listeners. Subscriptions
+   * are torn down on `dispose()`. Re-entrant calls are a no-op.
+   */
   start(): void {
-    if (this.unsubscribeEngine) return;
+    if (this.started) return;
+    this.started = true;
     this.unsubscribeEngine = this.engine.subscribe(this.handleEngineEvent);
+    if (this.bridge) {
+      this.unsubscribeFocus = this.bridge.onAudioFocusChange((focused) => {
+        if (!focused) this.handleFocusLost();
+      });
+      this.unsubscribeMediaButton = this.bridge.onMediaButton((command) => {
+        if (command === 'play') void this.play();
+        else if (command === 'pause') void this.pause();
+        else if (command === 'next') void this.next();
+        else if (command === 'previous') void this.previous();
+      });
+    }
   }
 
   dispose(): void {
     this.disposed = true;
+    this.started = false;
     this.unsubscribeEngine?.();
+    this.unsubscribeFocus?.();
+    this.unsubscribeMediaButton?.();
     this.unsubscribeEngine = null;
+    this.unsubscribeFocus = null;
+    this.unsubscribeMediaButton = null;
     this.listeners.clear();
     void this.engine.dispose();
   }
@@ -217,13 +253,23 @@ export class PlayerCoordinator {
     await this.engine.setVolume(volume);
   }
 
-  playNextInQueue(track: Track): void {
+  /**
+   * Add a track right after the current one. The intent is "queue in front of
+   * me" — never starts playback. The explicit name (`enqueueNext`, not
+   * `playNextInQueue`) is a contract for future callers: if you wanted it to
+   * start, you would have called `playAtIndex`.
+   */
+  enqueueNext(track: Track): void {
     if (!this.queue) return;
     this.queue = playNext(this.queue, track);
     this.publish();
   }
 
-  addToQueue(track: Track): void {
+  /**
+   * Append to the end of the queue. Marks the track as a manual insertion so
+   * "清空手动添加" works. Never starts playback.
+   */
+  enqueueLast(track: Track): void {
     if (!this.queue) return;
     const withTrack = addToQueue(this.queue, track);
     this.queue = {

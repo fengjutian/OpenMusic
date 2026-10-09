@@ -41,7 +41,7 @@ export function HomeScreen() {
             kind: 'library',
             title: shelf?.title ?? '发现',
           };
-          void intents.playTracks(context, tracks, Math.max(0, index));
+          void intents.playTrackList(context, tracks, Math.max(0, index));
           break;
         }
         case 'playlist':

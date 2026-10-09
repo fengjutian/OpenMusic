@@ -34,7 +34,7 @@ export function LibraryScreen() {
     const tracks = resource.state.data?.likedTracks ?? [];
     if (tracks.length === 0) return;
     const context: PlaybackContext = { id: 'pl_liked', kind: 'library', title: '喜欢的音乐' };
-    void intents.playTracks(context, tracks, 0);
+    void intents.playTrackList(context, tracks, 0);
   }, [intents, resource.state.data]);
 
   const data = resource.state.status === 'success' ? resource.state.data : null;
@@ -178,7 +178,7 @@ export function LibraryScreen() {
                     playing={track.id === currentTrackId}
                     liked={libraryActions.isLiked(track.id)}
                     onPress={() =>
-                      void intents.playTracks(
+                      void intents.playTrackList(
                         { id: 'pl_liked', kind: 'library', title: '喜欢的音乐' },
                         liked,
                         index,

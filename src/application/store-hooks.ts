@@ -18,6 +18,19 @@ export function useStoreSlice<T extends object, K extends keyof T>(
   return useSyncExternalStore(store.subscribe, selector, selector);
 }
 
+/**
+ * @deprecated Use `useStoreSlice` for the common case.
+ *
+ * This hook exists for callers that need a derived projection that
+ * `useStoreSlice` cannot express cheaply (e.g. computing a list of liked
+ * track objects from `likedTrackIds` joined with the catalog). The
+ * implementation deliberately avoids writing to a ref during render, which
+ * is why it is more involved than a one-liner.
+ *
+ * Replace with `useSyncExternalStore` plus a store that exposes
+ * `subscribeWithSelector` once the player/coordinator refactor lands —
+ * see the review note "useStoreSelector 抗 ref-during-render".
+ */
 export function useStoreSelector<T extends object, S>(
   store: Store<T>,
   select: (state: T) => S,

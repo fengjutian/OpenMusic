@@ -14,6 +14,8 @@ import {
   PlaybackControls,
 } from '../../shared/playback.jsx';
 import { usePlayerFull, usePlayerIntents } from '../../shared/use-player.js';
+import { DEFAULT_NOW_PLAYING_LAYOUT } from './now-playing-layout.js';
+import type { NowPlayingLayout } from './now-playing-layout.js';
 
 type Pane = 'artwork' | 'lyrics';
 
@@ -25,7 +27,13 @@ type Pane = 'artwork' | 'lyrics';
 export const NOW_PLAYING_ARTWORK_SIZE = 320;
 export const NOW_PLAYING_TRACK_WIDTH = 320;
 
-export function NowPlayingOverlay({ onClose }: { onClose: () => void }) {
+export function NowPlayingOverlay({
+  onClose,
+  layout = DEFAULT_NOW_PLAYING_LAYOUT,
+}: {
+  onClose: () => void;
+  layout?: NowPlayingLayout;
+}) {
   const theme = useTheme();
   const services = getServices();
   const player = usePlayerFull();
@@ -38,8 +46,8 @@ export function NowPlayingOverlay({ onClose }: { onClose: () => void }) {
     services.analytics.track('player_expand', { context: player.queue?.context.kind ?? 'unknown' });
   }, [player.queue?.context.kind, services]);
 
-  const trackWidth = NOW_PLAYING_TRACK_WIDTH;
-  const trackHeight = NOW_PLAYING_ARTWORK_SIZE;
+  const trackWidth = layout.trackWidth;
+  const trackHeight = layout.artworkSize;
 
   if (!track) {
     return (
@@ -83,7 +91,7 @@ export function NowPlayingOverlay({ onClose }: { onClose: () => void }) {
           <Artwork src={track.coverUrl} size={trackHeight} />
         </view>
       ) : (
-        <LyricsPane trackId={track.id} positionMs={player.positionMs} />
+        <LyricsPane trackId={track.id} positionMs={player.positionMs} layout={layout} />
       )}
 
       <view style={{ paddingLeft: `${theme.spacing.x6}px`, paddingRight: `${theme.spacing.x6}px`, gap: 2 }}>
@@ -142,7 +150,15 @@ export function NowPlayingOverlay({ onClose }: { onClose: () => void }) {
   );
 }
 
-function LyricsPane({ trackId, positionMs }: { trackId: string; positionMs: number }) {
+function LyricsPane({
+  trackId,
+  positionMs,
+  layout,
+}: {
+  trackId: string;
+  positionMs: number;
+  layout: NowPlayingLayout;
+}) {
   const services = getServices();
   const resource = useAsyncResource<LyricLine[]>(
     (signal) => services.repository.getLyrics(trackId, { signal }),
@@ -152,7 +168,7 @@ function LyricsPane({ trackId, positionMs }: { trackId: string; positionMs: numb
   const lines = resource.state.status === 'success' ? resource.state.data : [];
 
   return (
-    <view style={{ height: NOW_PLAYING_ARTWORK_SIZE, paddingLeft: `${24}px`, paddingRight: `${24}px` }}>
+    <view style={{ height: `${layout.artworkSize}px`, paddingLeft: `${24}px`, paddingRight: `${24}px` }}>
       <LyricsView
         lines={lines}
         positionMs={positionMs}

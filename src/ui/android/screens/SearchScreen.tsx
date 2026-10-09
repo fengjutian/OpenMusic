@@ -101,7 +101,7 @@ export function SearchScreen() {
         kind: 'library',
         title: `搜索「${submitted}」`,
       };
-      void intents.playTracks(context, tracks, index);
+      void intents.playTrackList(context, tracks, index);
     },
     [intents, submitted],
   );

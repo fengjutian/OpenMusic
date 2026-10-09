@@ -126,7 +126,7 @@ export function PlaylistScreen({ id }: { id: string }) {
   );
 
   const playAll = useCallback(() => {
-    void intents.playTracks(context, tracks, 0);
+    void intents.playTrackList(context, tracks, 0);
   }, [context, intents, tracks]);
 
   return (
@@ -163,9 +163,9 @@ export function PlaylistScreen({ id }: { id: string }) {
                 index={index + 1}
                 playing={track.id === currentTrackId}
                 liked={libraryActions.isLiked(track.id)}
-                onPress={() => void intents.playTracks(context, tracks, index)}
+                onPress={() => void intents.playTrackList(context, tracks, index)}
                 onToggleLike={() => void likeToggle(track)}
-                onOpenMenu={() => intents.playNextInQueue(track)}
+                onOpenMenu={() => intents.enqueueNext(track)}
               />
             ))}
             <view style={{ height: `${theme.spacing.x8}px` }} />
@@ -214,7 +214,7 @@ export function AlbumScreen({ id }: { id: string }) {
               subtitle={data.artist?.name}
               coverUrl={data.coverUrl}
               meta={data.year ? `${data.year} · ${data.tracks.length} 首` : undefined}
-              onPlayAll={() => void intents.playTracks(context, data.tracks, 0)}
+              onPlayAll={() => void intents.playTrackList(context, data.tracks, 0)}
               playAllDisabled={data.tracks.length === 0}
             />
             {data.tracks.map((track, index) => (
@@ -224,7 +224,7 @@ export function AlbumScreen({ id }: { id: string }) {
                 index={index + 1}
                 playing={track.id === currentTrackId}
                 liked={libraryActions.isLiked(track.id)}
-                onPress={() => void intents.playTracks(context, data.tracks, index)}
+                onPress={() => void intents.playTrackList(context, data.tracks, index)}
                 onToggleLike={() => void likeToggle(track)}
               />
             ))}
@@ -295,7 +295,7 @@ export function ArtistScreen({ id }: { id: string }) {
             <DetailHeader
               title="热门歌曲"
               meta={`共 ${data.hotTracks.length} 首`}
-              onPlayAll={() => void intents.playTracks(context, data.hotTracks, 0)}
+              onPlayAll={() => void intents.playTrackList(context, data.hotTracks, 0)}
               playAllDisabled={data.hotTracks.length === 0}
             />
 
@@ -305,7 +305,7 @@ export function ArtistScreen({ id }: { id: string }) {
                 track={track}
                 index={index + 1}
                 playing={track.id === currentTrackId}
-                onPress={() => void intents.playTracks(context, data.hotTracks, index)}
+                onPress={() => void intents.playTrackList(context, data.hotTracks, index)}
               />
             ))}
 
