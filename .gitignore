@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.rspeedy/
+*.tsbuildinfo
+.DS_Store
+*.log
+.eslintcache
+
+# native hosts
+android/.gradle/
+android/build/
+android/local.properties
+android/app/build/
+android/.idea/
+windows/build/
+windows/out/
+windows/.vs/
+*.apk
+*.aab
+*.exe
