@@ -26,7 +26,11 @@ npm run verify        # typecheck + lint + test + build，四步全过才返回 
 
 npm run dev            # Android 形态的开发服务器
 npm run dev:windows    # Windows 形态（左侧导航布局）
-npm run build          # 产出 dist/main.lynx.bundle
+npm run build          # 产出 dist/main.lynx.bundle + dist/main.web.bundle
+
+# Windows host（Edge / WebView2 直接加载同一份 web bundle）
+npm run prepare:windows-host    # 拷贝 web-core + remote-web-worker 到 vendor/
+npm run serve:windows-host      # http://127.0.0.1:4173/windows/host/index.html
 ```
 
 单独运行某一环节：

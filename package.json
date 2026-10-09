@@ -12,6 +12,8 @@
     "dev:android": "rspeedy dev --platform android",
     "dev:windows": "rspeedy dev --platform windows",
     "preview": "rspeedy preview",
+    "prepare:windows-host": "node scripts/prepare-windows-host.mjs",
+    "serve:windows-host": "node scripts/serve-windows-host.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "rstest run",

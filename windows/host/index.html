@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>OpenMusic</title>
+  <!--
+    OpenMusic Windows host (route C, ADR-0001).
+
+    Loads the same `main.web.bundle` produced for the ReactLynx tree, then
+    renders it via the Lynx Web runtime inside a `<lynx-view>` custom element.
+
+    Vendored runtime
+    ----------------
+    `@lynx-js/web-core` + `remote-web-worker` are copied into
+    `windows/host/vendor/` by `scripts/prepare-windows-host.mjs` and served
+    from the project root by `scripts/serve-windows-host.mjs`. We do this so:
+      1. The host has no CDN dependency at runtime (production posture).
+      2. The Lynx Web runtime's template-loader Worker can be loaded from the
+         same origin (cross-origin Worker construction throws SecurityError).
+      3. CDN URLs are easy to swap out for local copies during dev.
+
+    `remote-web-worker` must be imported BEFORE `@lynx-js/web-core/client` so
+    its `Worker` polyfill is installed first; see web-core README.
+
+    Verification status: this host has been opened in Chromium / Edge via the
+    in-app Browser and produced the ReactLynx tree. Edge WebView2 was not
+    separately launched because the engine is the same Chromium. See
+    `docs/platform-capability-matrix.md` §主能力矩阵 "Windows — Lynx 嵌入".
+  -->
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      color: #fff;
+      font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    lynx-view {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+    .error-banner {
+      color: #fee;
+      padding: 16px;
+      white-space: pre-wrap;
+      background: #220000;
+      font-family: ui-monospace, "SFMono-Regular", monospace;
+      font-size: 13px;
+    }
+    lynx-view[data-error] {
+      outline: 2px solid #c33;
+    }
+  </style>
+
+  <!--
+    Entry order matters:
+      1) remote-web-worker polyfills Worker
+      2) @lynx-js/web-core registers `<lynx-view>`
+    Both are loaded as ES modules with relative URLs so the same-origin
+    loader picks them up.
+  -->
+  <link rel="stylesheet" href="./vendor/static/css/client.css" />
+  <script type="module">
+    // Polyfill Worker BEFORE web-core evaluates.
+    import './vendor/remote-web-worker/module.js';
+    import './vendor/static/js/client.js';
+
+    const view = document.createElement('lynx-view');
+    view.id = 'app';
+    view.style.width = '100vw';
+    view.style.height = '100vh';
+    // Absolute URL relative to the current origin so the runtime cannot
+    // mis-resolve the relative path through its own base URL.
+    view.setAttribute('url', `${location.origin}/dist/main.web.bundle`);
+    document.body.appendChild(view);
+
+    view.addEventListener('error', (event) => {
+      console.error('[OpenMusic] lynx-view failed to load:', event.detail ?? event);
+      view.setAttribute('data-error', 'true');
+      const banner = document.createElement('pre');
+      banner.className = 'error-banner';
+      const detail = event?.detail ?? event;
+      banner.textContent =
+        'OpenMusic 启动失败：' +
+        (detail?.message ?? detail?.toString?.() ?? '未知错误');
+      document.body.appendChild(banner);
+    });
+
+    // ------------------------------------------------------------------------
+    // SMTC hook (stage 9). Edge / WebView2 expose `navigator.mediaSession`,
+    // which lets the host surface "Now Playing" to the OS media-key surface
+    // and to the taskbar media controls. We pre-create the metadata slot so
+    // the moment the ReactLynx bundle wires real audio (HTMLAudioElement),
+    // the OS UI shows the track.
+    //
+    // Stage 8 verification only asserts `navigator.mediaSession` is present;
+    // full end-to-end ("system tray shows current track", "media keys toggle
+    // playback") lands in stage 9 once `createProductionServices` provides
+    // a real AudioEnginePort and the bundle actually plays audio.
+    // ------------------------------------------------------------------------
+    if ('mediaSession' in navigator) {
+      console.info('[OpenMusic] navigator.mediaSession available; SMTC ready.');
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: 'OpenMusic',
+          artist: '正在准备',
+          album: '',
+        });
+      } catch (cause) {
+        console.warn('[OpenMusic] mediaSession.metadata set failed:', cause);
+      }
+    } else {
+      console.warn('[OpenMusic] navigator.mediaSession is unavailable in this host.');
+    }
+  </script>
+</head>
+<body>
+</body>
+</html>

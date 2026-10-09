@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .rspeedy/
+.gradle-home/
 *.tsbuildinfo
 .DS_Store
 *.log

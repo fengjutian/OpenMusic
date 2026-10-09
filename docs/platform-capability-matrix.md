@@ -50,6 +50,7 @@ Android SDK、Gradle、MSVC。按技术实现文档 §17「任何关键能力未
 | Android Lynx 真实构造 | ✅ 代码完成 / ❌ 未编译 | `OpenMusicBridge.createLynxView()` 不再抛异常；使用 `LynxViewBuilder` + `AbsTemplateProvider`；依赖钉到已验证的 3.6.x；详见 `adr/0003-lynx-android-runtime-version.md` |
 | Android APK 构建 | ❌ 未实现 | AGP 8.7.3 插件无本地 Maven 缓存，`--offline` 模式解析失败；`ANDROID_HOME` 未装、`adb` 缺失 |
 | Android 真机启动 | ❌ 未实现 | 依赖 APK 构建产物 |
+| Windows Lynx 嵌入 | ✅ 阶段 8 完成（路线 C：Lynx Web + WebView2） | Edge 直接打开 `windows/host/index.html` 渲染同一份 `main.web.bundle`（289.5 kB）；P1–P5 决策门通过；详见 `adr/0001-windows-presentation-layer.md`；`windows/src/*.cpp` 保留但不参与 build |
 | 双线程 ReactLynx 代码 | ✅ 可构建 | 同上；`@lynx-js/react` 0.126.2 + `@lynx-js/types` 4.3.0 |
 | 端口契约与依赖方向 | ✅ 通过 | domain 层不 import 任何上层模块 |
 | 数据库迁移可回滚 | ✅ 纯逻辑已测 | `src/infrastructure/database/__tests__/migrator.test.ts` |
