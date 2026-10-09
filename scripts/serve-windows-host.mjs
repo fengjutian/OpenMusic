@@ -18,6 +18,7 @@ const root = path.resolve(here, '..');
 
 const PORT = Number(process.env.PORT ?? 4173);
 const HOST = '127.0.0.1';
+const HOST_PATH = '/windows/host/index.html';
 const shouldOpen = !process.argv.includes('--no-open');
 
 const mime = {
@@ -37,7 +38,13 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${HOST}:${PORT}`);
     let pathname = decodeURIComponent(url.pathname);
-    if (pathname === '/') pathname = '/windows/host/index.html';
+    // Redirect instead of serving the host HTML at `/`: its `./vendor/*`
+    // imports must resolve relative to `/windows/host/`, otherwise Edge asks
+    // for `/vendor/*` and the page stays black after those requests return 404.
+    if (pathname === '/') {
+      res.writeHead(302, { location: HOST_PATH }).end();
+      return;
+    }
     const filePath = path.join(root, pathname);
     if (!filePath.startsWith(root)) {
       res.writeHead(403).end('Forbidden');
@@ -65,7 +72,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.on('listening', () => {
-  const url = `http://${HOST}:${PORT}/`;
+  const url = `http://${HOST}:${PORT}${HOST_PATH}`;
   console.log(`OpenMusic Windows host serving at ${url}`);
   console.log(`(project root: ${root})`);
   if (shouldOpen) {
