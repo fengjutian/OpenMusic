@@ -136,12 +136,20 @@ class BaseBridge implements PlatformBridgePort {
 }
 
 class AndroidBridge extends BaseBridge {
+  constructor() {
+    super('android');
+  }
+
   protected override nativeModule() {
     return nativeGlobals().openmusicAndroid;
   }
 }
 
 class WindowsBridge extends BaseBridge {
+  constructor() {
+    super('windows');
+  }
+
   protected override nativeModule() {
     return nativeGlobals().openmusicWindows;
   }

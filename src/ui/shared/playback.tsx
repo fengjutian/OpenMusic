@@ -42,7 +42,7 @@ export function MiniPlayer({
   onNext,
   onExpand,
   onRetry,
-  testID,
+  id,
 }: MiniPlayerProps) {
   const theme = useTheme();
   if (!track) return null;

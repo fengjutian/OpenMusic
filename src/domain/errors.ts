@@ -19,7 +19,6 @@ export class AppError extends Error {
   readonly userMessage: string;
   /** Debug-only detail. Goes to logs, never to the UI. */
   readonly debugDetail?: string;
-  readonly cause?: unknown;
 
   constructor(
     kind: AppErrorKind,
@@ -31,7 +30,6 @@ export class AppError extends Error {
     this.kind = kind;
     this.userMessage = userMessage;
     this.debugDetail = options?.debugDetail;
-    this.cause = options?.cause;
   }
 
   static from(error: unknown, fallbackMessage = '出了点问题，请重试'): AppError {

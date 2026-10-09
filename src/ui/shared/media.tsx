@@ -36,7 +36,7 @@ export function Artwork({
   shape = 'square',
   fallbackIcon = 'music',
   radiusOverride,
-  testID,
+  id,
 }: ArtworkProps) {
   const theme = useTheme();
   const [status, setStatus] = useState<'idle' | 'loaded' | 'failed'>(
@@ -112,7 +112,7 @@ export function TrackRow({
   onToggleLike,
   onOpenMenu,
   showArtwork = true,
-  testID,
+  id,
 }: TrackRowProps) {
   const theme = useTheme();
   const dim = !track.playable;
@@ -253,7 +253,7 @@ export function MediaCard({
   shape = 'square',
   cardWidth = 140,
   onPress,
-  testID,
+  id,
 }: MediaCardProps) {
   const theme = useTheme();
   return (

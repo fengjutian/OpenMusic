@@ -24,7 +24,7 @@ export function SearchField({
   onSubmit,
   placeholder = '搜索歌曲、歌手、专辑',
   autoFocus = false,
-  testID,
+  id,
 }: SearchFieldProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
@@ -179,7 +179,7 @@ export function ProgressBar({
   onSeek,
   height = 3,
   trackWidth,
-  testID,
+  id,
 }: ProgressBarProps) {
   const theme = useTheme();
   const [dragging, setDragging] = useState<number | null>(null);

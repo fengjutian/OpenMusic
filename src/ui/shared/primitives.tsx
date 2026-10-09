@@ -36,7 +36,7 @@ export function Text({
   lines,
   weight = 'regular',
   style,
-  testID,
+  id,
 }: TextProps) {
   const theme = useTheme();
   const scale = typeScale[variant];
@@ -92,7 +92,7 @@ export function Pressable({
   selected = false,
   accessibilityLabel,
   style,
-  testID,
+  id,
   hitSlop,
 }: PressableProps) {
   const theme = useTheme();
