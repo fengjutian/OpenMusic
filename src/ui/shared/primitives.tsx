@@ -115,7 +115,6 @@ export function Pressable({
     <view
       id={id}
       data-testid={id}
-      data-testid={id}
       accessibility-label={accessibilityLabel}
       accessibility-role="button"
       aria-disabled={inactive}
