@@ -232,7 +232,6 @@ export class WebAudioEngine implements AudioEnginePort {
     } catch (cause) {
       // MediaSession is unavailable in non-secure contexts; surface but do
       // not crash the engine — playback still works.
-      // eslint-disable-next-line no-console
       console.warn('[WebAudioEngine] mediaSession setup failed:', cause);
     }
   }

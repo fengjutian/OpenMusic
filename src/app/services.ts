@@ -30,6 +30,7 @@ import type {
 } from '../domain/ports.js';
 import { FakeAudioEngine } from '../infrastructure/audio/fake-audio-engine.js';
 import { WebAudioEngine } from '../infrastructure/audio/web-audio-engine.js';
+import { LocalMusicRepository } from '../infrastructure/repository/local-music-repository.js';
 import { MockMusicRepository } from '../infrastructure/repository/mock-music-repository.js';
 import {
   MemorySecureStorage,
@@ -118,6 +119,20 @@ export interface TestOverrides {
   settings?: SettingsPort;
   secure?: SecureStoragePort;
   analytics?: AnalyticsPort;
+}
+
+interface OpenMusicImportGlobals {
+  /**
+   * When the host's file picker finishes, it assigns the resulting tracks
+   * here. The bootstrap reads this on first call and uses `LocalMusicRepository`
+   * instead of the Mock seed. Production Android / Windows builds wire
+   * SQLite-backed equivalents instead of this hand-off.
+   *
+   * `Track[]` flows across the realm boundary as plain JSON because
+   * `File` objects cannot cross a worker boundary, but `audioUrl`
+   * stays as a blob: URL the host created via `URL.createObjectURL`.
+   */
+  __openmusicImportedTracks?: import('../domain/models.js').Track[];
 }
 
 // ---------------------------------------------------------------------------
@@ -252,13 +267,17 @@ export function createProductionServices(adapters: NativeAdapters): Services {
  */
 export function createDemoServices(): Services {
   const onWeb = isWebHost();
+  const imported = readImportedTracks();
+  const catalog = imported
+    ? new LocalMusicRepository({ tracks: imported })
+    : new MockMusicRepository({
+        latencyMs: 160,
+        audioUrl: onWeb ? WEB_DEMO_AUDIO_URL : undefined,
+      });
   return buildServices({
     bridge: createPlatformBridge(),
     engine: pickAudioEngine(),
-    catalog: new MockMusicRepository({
-      latencyMs: 160,
-      audioUrl: onWeb ? WEB_DEMO_AUDIO_URL : undefined,
-    }),
+    catalog,
     settings: new MemorySettings(),
     secure: new MemorySecureStorage(),
     analytics: defaultAnalytics(),
@@ -268,6 +287,19 @@ export function createDemoServices(): Services {
     // about the storage layer until stage 4 ships SQLite.
     usingMocks: true,
   });
+}
+
+/**
+ * Pull host-picked tracks off the global bridge. `globalThis` is the only
+ * channel that survives the lynx-view worker boundary without a richer
+ * bridge protocol (stage 10 work).
+ */
+function readImportedTracks(): import('../domain/models.js').Track[] | null {
+  const g = globalThis as unknown as OpenMusicImportGlobals;
+  const tracks = g.__openmusicImportedTracks;
+  if (!tracks || !Array.isArray(tracks) || tracks.length === 0) return null;
+  // Defensive copy: the host may overwrite the slot on the next reload.
+  return tracks.map((track) => ({ ...track }));
 }
 
 /**

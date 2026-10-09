@@ -9,6 +9,9 @@
 
     Loads the same `main.web.bundle` produced for the ReactLynx tree, then
     renders it via the Lynx Web runtime inside a `<lynx-view>` custom element.
+    File picker lets the user supply real audio files; they are converted to
+    blob URLs and pushed into `globalThis.__openmusicImportedTracks` before
+    the bundle bootstraps.
 
     Vendored runtime
     ----------------
@@ -52,71 +55,199 @@
       font-family: ui-monospace, "SFMono-Regular", monospace;
       font-size: 13px;
     }
-    lynx-view[data-error] {
-      outline: 2px solid #c33;
+    .toolbar {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 10;
+      display: flex;
+      gap: 8px;
     }
+    .toolbar button {
+      font: inherit;
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: 1px solid #555;
+      background: #222;
+      color: #fff;
+      cursor: pointer;
+    }
+    .toolbar button:hover { background: #333; }
+    .toolbar .status {
+      align-self: center;
+      font-size: 12px;
+      color: #aaa;
+    }
+    /* Hide the file input — the toolbar button proxies clicks into it. */
+    #picker { display: none; }
   </style>
 
-  <!--
-    Entry order matters:
-      1) remote-web-worker polyfills Worker
-      2) @lynx-js/web-core registers `<lynx-view>`
-    Both are loaded as ES modules with relative URLs so the same-origin
-    loader picks them up.
-  -->
   <link rel="stylesheet" href="./vendor/static/css/client.css" />
   <script type="module">
     // Polyfill Worker BEFORE web-core evaluates.
     import './vendor/remote-web-worker/module.js';
     import './vendor/static/js/client.js';
 
-    const view = document.createElement('lynx-view');
-    view.id = 'app';
-    view.style.width = '100vw';
-    view.style.height = '100vh';
-    // Absolute URL relative to the current origin so the runtime cannot
-    // mis-resolve the relative path through its own base URL.
-    view.setAttribute('url', `${location.origin}/dist/main.web.bundle`);
-    document.body.appendChild(view);
+    /**
+     * Convert a FileList of user-picked audio into Track[] (serializable form).
+     * The bundle consumes this through `globalThis.__openmusicImportedTracks`.
+     */
+    function filesToTracks(fileList) {
+      const tracks = [];
+      const seen = new Map();
+      let counter = 0;
+      for (const file of fileList) {
+        if (!/\.(mp3|m4a|ogg|wav|flac|aac)$/i.test(file.name)) continue;
+        counter += 1;
+        // Derive a stable id from filename + size + modified time so reloading
+        // the same folder yields the same id and the player keeps its queue.
+        const key = `${file.name}|${file.size}|${file.lastModified}`;
+        let id = key.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 32);
+        if (!id) id = `tr_${counter}`;
+        while (seen.has(id)) id = `${id}_${counter}`;
+        seen.set(id, true);
 
-    view.addEventListener('error', (event) => {
-      console.error('[OpenMusic] lynx-view failed to load:', event.detail ?? event);
-      view.setAttribute('data-error', 'true');
-      const banner = document.createElement('pre');
-      banner.className = 'error-banner';
-      const detail = event?.detail ?? event;
-      banner.textContent =
-        'OpenMusic 启动失败：' +
-        (detail?.message ?? detail?.toString?.() ?? '未知错误');
-      document.body.appendChild(banner);
-    });
-
-    // ------------------------------------------------------------------------
-    // SMTC hook (stage 9). Edge / WebView2 expose `navigator.mediaSession`,
-    // which lets the host surface "Now Playing" to the OS media-key surface
-    // and to the taskbar media controls. We pre-create the metadata slot so
-    // the moment the ReactLynx bundle wires real audio (HTMLAudioElement),
-    // the OS UI shows the track.
-    //
-    // Stage 8 verification only asserts `navigator.mediaSession` is present;
-    // full end-to-end ("system tray shows current track", "media keys toggle
-    // playback") lands in stage 9 once `createProductionServices` provides
-    // a real AudioEnginePort and the bundle actually plays audio.
-    // ------------------------------------------------------------------------
-    if ('mediaSession' in navigator) {
-      console.info('[OpenMusic] navigator.mediaSession available; SMTC ready.');
-      try {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: 'OpenMusic',
-          artist: '正在准备',
-          album: '',
+        // Strip extension for the title; later stages can replace with ID3.
+        const lastDot = file.name.lastIndexOf('.');
+        const title = lastDot >= 0 ? file.name.slice(0, lastDot) : file.name;
+        const url = URL.createObjectURL(file);
+        tracks.push({
+          id,
+          title,
+          artists: [{ id: 'ar_local', name: '本地音乐' }],
+          album: {
+            id: 'al_local',
+            title: '已导入',
+            coverUrl: '',
+            year: file.lastModified
+              ? new Date(file.lastModified).getFullYear()
+              : undefined,
+          },
+          coverUrl: '',
+          durationMs: 0,
+          playable: true,
+          audioUrl: url,
+          source: 'local',
+          sizeBytes: file.size,
         });
-      } catch (cause) {
-        console.warn('[OpenMusic] mediaSession.metadata set failed:', cause);
       }
-    } else {
-      console.warn('[OpenMusic] navigator.mediaSession is unavailable in this host.');
+      return tracks;
     }
+
+    function pickAndReload(input) {
+      if (!input.files || input.files.length === 0) return;
+      const tracks = filesToTracks(input.files);
+      if (tracks.length === 0) {
+        alert('没有识别到音频文件（需要 mp3 / m4a / ogg / wav / flac / aac）');
+        return;
+      }
+      window.__openmusicImportedTracks = tracks;
+      // Reset the input so picking the same folder again re-fires `change`.
+      input.value = '';
+      document.getElementById('status').textContent =
+        `已导入 ${tracks.length} 首 · 重新载入中…`;
+      // Bootstrap will read `__openmusicImportedTracks` on the next load.
+      // We reload the bundle by reloading the lynx-view's url.
+      location.reload();
+    }
+
+    function renderToolbar() {
+      const bar = document.createElement('div');
+      bar.className = 'toolbar';
+      const button = document.createElement('button');
+      button.textContent = '选择音乐目录';
+      const status = document.createElement('span');
+      status.className = 'status';
+      status.id = 'status';
+      status.textContent = '当前：demo seed';
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.id = 'picker';
+      input.multiple = true;
+      // `webkitdirectory` is the legacy attribute that Chromium and Edge
+      // still honour for directory pickers.
+      input.setAttribute('webkitdirectory', '');
+      input.setAttribute('directory', '');
+      input.addEventListener('change', () => pickAndReload(input));
+      button.addEventListener('click', () => input.click());
+      bar.appendChild(button);
+      bar.appendChild(status);
+      bar.appendChild(input);
+      document.body.appendChild(bar);
+    }
+
+    /**
+     * Stage-9 end-to-end test hook: navigating with `#seed-imports=<n>`
+     * pre-fills `__openmusicImportedTracks` with `<n>` synthetic blob: tracks
+     * so the bundle bootstraps against `LocalMusicRepository` without
+     * having to drive the native file dialog. The hook is harmless in
+     * production because the synthetic blob: URLs point at empty content.
+     */
+    function maybeSeedFromHash() {
+      const match = location.hash.match(/#seed-imports=(\d+)/);
+      if (!match) return;
+      const count = Math.min(50, Math.max(1, Number(match[1])));
+      const tracks = [];
+      for (let i = 1; i <= count; i += 1) {
+        tracks.push({
+          id: `seed_${i}`,
+          title: `种子曲目 ${i}`,
+          artists: [{ id: 'ar_seed', name: '种子歌手' }],
+          album: { id: 'al_seed', title: '种子专辑', coverUrl: '', year: 2024 },
+          coverUrl: '',
+          durationMs: 0,
+          playable: true,
+          // blob: URLs pointing at an empty Blob — WebAudioEngine will fail
+          // to decode but the UI flow can be exercised.
+          audioUrl: URL.createObjectURL(new Blob([new Uint8Array(0)], { type: 'audio/mpeg' })),
+          source: 'local',
+        });
+      }
+      window.__openmusicImportedTracks = tracks;
+      const status = document.getElementById('status');
+      if (status) status.textContent = `当前：hash seed (${count} 首)`;
+    }
+
+    function mountLynx() {
+      const view = document.createElement('lynx-view');
+      view.id = 'app';
+      view.style.width = '100vw';
+      view.style.height = '100vh';
+      // Absolute URL relative to the current origin so the runtime cannot
+      // mis-resolve the relative path through its own base URL.
+      view.setAttribute('url', `${location.origin}/dist/main.web.bundle`);
+      document.body.appendChild(view);
+
+      view.addEventListener('error', (event) => {
+        console.error('[OpenMusic] lynx-view failed to load:', event.detail ?? event);
+        view.setAttribute('data-error', 'true');
+        const banner = document.createElement('pre');
+        banner.className = 'error-banner';
+        const detail = event?.detail ?? event;
+        banner.textContent =
+          'OpenMusic 启动失败：' +
+          (detail?.message ?? detail?.toString?.() ?? '未知错误');
+        document.body.appendChild(banner);
+      });
+
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: 'OpenMusic',
+            artist: '正在准备',
+            album: '',
+          });
+        } catch (cause) {
+          console.warn('[OpenMusic] mediaSession.metadata set failed:', cause);
+        }
+      } else {
+        console.warn('[OpenMusic] navigator.mediaSession is unavailable in this host.');
+      }
+    }
+
+    renderToolbar();
+    maybeSeedFromHash();
+    mountLynx();
   </script>
 </head>
 <body>
