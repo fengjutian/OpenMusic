@@ -29,6 +29,7 @@ import type {
   SettingsPort,
 } from '../domain/ports.js';
 import { FakeAudioEngine } from '../infrastructure/audio/fake-audio-engine.js';
+import { WebAudioEngine } from '../infrastructure/audio/web-audio-engine.js';
 import { MockMusicRepository } from '../infrastructure/repository/mock-music-repository.js';
 import {
   MemorySecureStorage,
@@ -62,6 +63,42 @@ export interface Services {
   start(): void;
   /** Idempotent: tears down subscriptions and disposes the engine. */
   dispose(): void;
+}
+
+/**
+ * The web demo host needs an `audioUrl` for every playable track so the
+ * `WebAudioEngine` can actually fetch a real file. `assets/audio/sample.mp3`
+ * is committed to the repo for stage 9 verification — replace with the
+ * user's own library once `LocalMusicRepository` lands in stage 4.
+ *
+ * The URL is resolved relative to the host page, not relative to the bundle,
+ * because the bundle is served from `dist/` while the asset lives at the
+ * project root.
+ */
+const WEB_DEMO_AUDIO_URL = '../assets/audio/sample.mp3';
+
+/**
+ * Detect whether we are running in a web host (WebView2 / Edge / browser).
+ * The web runtime exposes `document` + `HTMLAudioElement`; the ReactLynx
+ * Android / iOS runtime does not.
+ */
+function isWebHost(): boolean {
+  return typeof document !== 'undefined' && typeof document.createElement === 'function';
+}
+
+/**
+ * Select the audio engine for the current build context.
+ *
+ * - web host (WebView2 / Edge): `WebAudioEngine` against HTMLAudioElement
+ * - everything else (ReactLynx native): `FakeAudioEngine` until
+ *   `NativeAudioEngine` lands in stage 3 (skipped per user instruction
+ *   2026-10-09; see ADR-0003).
+ *
+ * Tests can still pass an explicit override through `TestOverrides.engine`.
+ */
+function pickAudioEngine(explicit?: AudioEnginePort): AudioEnginePort {
+  if (explicit) return explicit;
+  return isWebHost() ? new WebAudioEngine() : new FakeAudioEngine();
 }
 
 /** Adapters provided by the native shell. `createProductionServices` requires every field. */
@@ -207,15 +244,28 @@ export function createProductionServices(adapters: NativeAdapters): Services {
  * Demo wiring. Used only when the app boots without a native shell — the
  * current reality on every dev machine. The capability matrix records this;
  * `usingMocks: true` lets the UI surface a "demo build" badge.
+ *
+ * On the web build the engine is real (HTMLAudioElement); only the
+ * catalog + settings + secure remain in-memory. `usingMocks` reflects that
+ * by going through `bridge.capabilities().native`, which is `false` until a
+ * real WebView2 host installs its bridge — see `windows/host/index.html`.
  */
 export function createDemoServices(): Services {
+  const onWeb = isWebHost();
   return buildServices({
     bridge: createPlatformBridge(),
-    engine: new FakeAudioEngine(),
-    catalog: new MockMusicRepository({ latencyMs: 160 }),
+    engine: pickAudioEngine(),
+    catalog: new MockMusicRepository({
+      latencyMs: 160,
+      audioUrl: onWeb ? WEB_DEMO_AUDIO_URL : undefined,
+    }),
     settings: new MemorySettings(),
     secure: new MemorySecureStorage(),
     analytics: defaultAnalytics(),
+    // Web demo with a real HTMLAudioElement + sample.mp3 is closer to a
+    // production build than a pure Fake build, but the catalog + settings
+    // are still in-memory. Reporting `usingMocks: true` keeps the UI honest
+    // about the storage layer until stage 4 ships SQLite.
     usingMocks: true,
   });
 }

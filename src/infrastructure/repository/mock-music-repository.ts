@@ -34,6 +34,14 @@ export interface MockRepositoryOptions {
   /** Fraction of requests that reject, for exercising the error state. */
   failureRate?: number;
   tracks?: Track[];
+  /**
+   * Override the `audioUrl` on every playable track so the demo build can
+   * point at a real audio file. Without this the seed uses the
+   * `file:///music/${id}.mp3` placeholder, which only exists in real
+   * Android / Windows builds. The web demo points this at
+   * `assets/audio/sample.mp3` (one file shared by all tracks).
+   */
+  audioUrl?: string;
 }
 
 export class MockMusicRepository implements MusicRepository {
@@ -47,7 +55,12 @@ export class MockMusicRepository implements MusicRepository {
   constructor(options: MockRepositoryOptions = {}) {
     this.latencyMs = options.latencyMs ?? 180;
     this.failureRate = options.failureRate ?? 0;
-    this.tracks = (options.tracks ?? SEED_TRACKS).map((track) => ({ ...track }));
+    const overrideUrl = options.audioUrl;
+    this.tracks = (options.tracks ?? SEED_TRACKS).map((track) => {
+      const next = { ...track };
+      if (overrideUrl && next.playable !== false) next.audioUrl = overrideUrl;
+      return next;
+    });
     this.playlists = SEED_PLAYLISTS.map((p) => ({ ...p }));
   }
 
