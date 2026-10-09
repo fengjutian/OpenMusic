@@ -194,6 +194,12 @@ export interface ProviderCapabilities {
   lyrics: boolean;
   /** Requires an account / user consent before use. */
   requiresAuth: boolean;
+  /**
+   * Display name shown in the UI next to data sourced from this provider
+   * (e.g. "网易云音乐"). Stage 10 item 6: every result must carry its
+   * source so users can see which third party their data flowed through.
+   */
+  providerName: string;
 }
 
 export interface ResolvedPlayable {
@@ -212,6 +218,13 @@ export interface ContentProvider {
   ): Promise<PageResult<Track>>;
   resolve(id: string, ctx?: RequestContext): Promise<ResolvedPlayable>;
   getLyrics?(id: string, ctx?: RequestContext): Promise<LyricLine[]>;
+  /**
+   * Drop credentials + cached state. After `revoke()` resolves, the
+   * provider must answer `capabilities().requiresAuth === true` again
+   * (no token cached) and any future call should treat the user as
+   * un-authenticated. Idempotent: a second call is a no-op.
+   */
+  revoke(): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,44 @@
+{
+  "capture": {
+    "timestamp": "2026-10-09T07:23:55.878Z",
+    "nodeVersion": "v24.14.1",
+    "tracks": 10000,
+    "creationMs": 345.31
+  },
+  "scenarios": {
+    "search": {
+      "samples": 40,
+      "p50Ms": 3.63,
+      "p95Ms": 9.27,
+      "maxMs": 16.49
+    },
+    "getHome": {
+      "samples": 20,
+      "p50Ms": 0.1,
+      "p95Ms": 0.36,
+      "maxMs": 0.36
+    },
+    "listTracks": {
+      "samples": 20,
+      "p50Ms": 0.5,
+      "p95Ms": 0.79,
+      "maxMs": 0.79
+    },
+    "markPlayed": {
+      "samples": 200,
+      "p50Ms": 0.01,
+      "p95Ms": 0.04,
+      "maxMs": 0.39
+    },
+    "hydrate": {
+      "samples": 5,
+      "p50Ms": 0,
+      "p95Ms": 0,
+      "maxMs": 0
+    }
+  },
+  "notes": [
+    "fake-indexeddb in-memory; numbers represent repository code, not real disk IDB throughput.",
+    "matrix §3.10/§3.12 cite this file as evidence the 200ms search P95 budget holds at 10 000 tracks."
+  ]
+}

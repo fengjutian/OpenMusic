@@ -1,9 +1,9 @@
 # 平台能力矩阵（Platform Capability Matrix）
 
-> 版本：0.4.0 / 2026-10-09（阶段 9.6 IDB 持久化 + 10.1 MediaSession 动态桥完成后更新）
+> 版本：0.5.0 / 2026-10-09（阶段 9.6 + 10.1 完成后跑 bench + matrix §3.12 量化）
 > 状态：**阶段 1/8/9/9.6/10.1 完成；阶段 2/3-7 Android 按指令整体跳过；阶段 10 其余前置不满足**
 > 依据：技术实现文档 §17；执行手册 阶段 0/1/2/8/9/10（`docs/MiniMax-完整开发执行步骤与提示词.md`）
-> 当前能力精确状态：见下方各表"状态"列；本月从 `npm run verify` / `dist/` 产物 / 工具链探测 + Edge headless 实测 + 110/110 测试得到。
+> 当前能力精确状态：见下方各表"状态"列；本月从 `npm run verify` / `npm run bench:music-repo` / `dist/` 产物 / 工具链探测 + Edge headless 实测 + 110/110 测试得到。
 
 ## 图例
 
@@ -271,6 +271,33 @@ npm test -- --filter "WebAudioEngine.updateNowPlaying"
 **局限**：
 - 写真机 OS 媒体键流转方向：bundle 内的 `WebAudioEngine.applyDefaultMediaSession` 已在 `play/pause/seekbackward/seekforward` 上 dispatch `CustomEvent('openmusic:media')`，但**主 host 还没有 listener 把这些事件翻译成 PlayerCoordinator 意图**——这条阶段 10.2 收口。
 - 真机 OS 任务栏 thumbnail/媒体键需求独立 WebView2 host 形态，**本机无法验证**。
+
+### 3.12 阶段 9.6 性能基线 — `bench:music-repo`
+```powershell
+npm run bench:music-repo
+# Output:
+#   artifacts/bench-music-repo.json
+#   stdout 一行式表格
+```
+**通过标准**：10 000 tracks 假曲库，5 个场景各有量化延迟。**预算**：search P95 ≤ 200ms（手册 §三阶段 3.8）。
+
+**实测（2026-10-09）**：
+
+| 场景 | 样本数 | p50 ms | p95 ms | max ms | 状态 |
+|---|---:|---:|---:|---:|---|
+| `search()` | 40 | 3.63 | 9.27 | 16.49 | ✅ 预算（9.27 ≤ 200） |
+| `getHome()` | 20 | 0.10 | 0.36 | 0.36 | ✅ |
+| `listTracks(cursor, 200)` | 20 | 0.50 | 0.79 | 0.79 | ✅ |
+| `markPlayed()` 同步 | 200 | 0.01 | 0.04 | 0.39 | ✅ |
+| hydrate-from-disk（重复 ready） | 5 | 0 | 0 | 0 | ✅（已缓存） |
+| **首次 hydration（10k seed 写盘）** | 1 | — | — | **345.31** | ✅（冷启动） |
+
+JSON 原文：`artifacts/bench-music-repo.json`。
+
+**局限（必须显式记录）**：
+- `fake-indexeddb` 是 in-memory fake；数值反映**仓库代码性能**，不反映真实浏览器 IDB 磁盘吞吐。**真 Windows WebView2 独立 host 上的真磁盘 IDB 性能是唯一可信指标**。
+- 10k 是单次种子；真实用户的导入可能跨多次目录选择（每次走 `importTracks` 清空再写）。`importTracks` 路径在 §3.10 单测中已涵盖（小数据集），但尚未在 10k 量级独立 bench；下一轮工具链扩展时补。
+- bench 跑的 5 场景未触及网络层（WebAudioEngine 的真实解码头不放进这次测量）。网络吞吐瓶颈是 audio decode，与 catalog bench 关注点不同。
 
 ## 4. 已知风险
 

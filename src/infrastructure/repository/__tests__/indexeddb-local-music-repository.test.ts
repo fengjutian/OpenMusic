@@ -228,7 +228,6 @@ describe('IndexedDbLocalMusicRepository', () => {
     const p95 = sorted[Math.min(4, sorted.length - 1)] ?? 0;
     // Soft assertion: a p95 above 200 ms is a regression, not a failure.
     // Log so the matrix records actual numbers.
-    /* eslint-disable-next-line no-console */
     console.log(
       `[stage9-6-bench] search P95 across 5 queries over 10k tracks = ${p95.toFixed(1)}ms`,
     );

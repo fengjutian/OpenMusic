@@ -246,7 +246,6 @@ export class IndexedDbLocalMusicRepository
 
       if (existing.length === 0 && callerHasSeed) {
         // First boot for this user. Persist whatever the bootstrapper passed.
-        // eslint-disable-next-line no-console
         console.warn(
           `[openmusic] first-boot: persisting ${this.tracks.length} tracks to IndexedDB`,
         );
