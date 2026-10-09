@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenMusic</string>
+    <string name="playback_channel_name">播放</string>
+    <string name="playback_channel_description">在后台控制 OpenMusic 播放</string>
+    <string name="scan_permission_rationale">
+        OpenMusic 只在你选择的音乐文件夹内读取文件名和标签，用于建立本地曲库。不会上传，也不会移动或删除你的音频文件。
+    </string>
+</resources>

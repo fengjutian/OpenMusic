@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Dark is the only validated theme for M1 (product spec §6.1). Light tokens
+      exist on the JS side (src/ui/shared/tokens.ts) but the native window colours
+      must match before the light theme can ship.
+    -->
+    <style name="Theme.OpenMusic" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

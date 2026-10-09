@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors the JS design tokens (src/ui/shared/tokens.ts). -->
+    <color name="background">#0F1012</color>
+    <color name="surface">#18191D</color>
+    <color name="brand">#E83B45</color>
+</resources>
