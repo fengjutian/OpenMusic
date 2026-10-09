@@ -69,7 +69,9 @@ export function usePlayerIntents(): PlayerIntent {
         services.analytics.track('seek', {});
         await services.player.seek(ms);
       },
-      cycleMode: () => services.player.cycleMode(),
+      cycleMode: async () => {
+        await services.player.cycleMode();
+      },
       retry: () => services.player.retry(),
       playNextInQueue: (track) => services.player.playNextInQueue(track),
       addToQueue: (track) => services.player.addToQueue(track),

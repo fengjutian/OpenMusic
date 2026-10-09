@@ -10,6 +10,8 @@
 import { useCallback, useState } from '@lynx-js/react';
 import type { ReactNode } from '@lynx-js/react';
 
+import { sessionStore } from '../../application/stores.js';
+import { useStoreSlice } from '../../application/store-hooks.js';
 import { useTheme } from './theme.js';
 import { typeScale } from './tokens.js';
 import type { TypeToken } from './tokens.js';
@@ -24,7 +26,7 @@ export interface TextProps {
   color?: 'primary' | 'secondary' | 'muted' | 'brand' | 'inverse' | 'success' | 'error';
   /** Ellipsis after N lines. Body copy is capped at 2, card titles at 1. */
   lines?: 1 | 2 | 3;
-  weight?: 'regular' | 'medium' | 'bold';
+  weight?: 'normal' | 'medium' | 'bold';
   style?: Record<string, string | number>;
   id?: string;
 }
@@ -34,7 +36,7 @@ export function Text({
   variant = 'body',
   color = 'primary',
   lines,
-  weight = 'regular',
+  weight = 'normal',
   style,
   id,
 }: TextProps) {
@@ -50,14 +52,17 @@ export function Text({
     error: theme.colors.error,
   }[color];
 
+  // Lynx font-weight vocabulary: 'normal' | 'medium' | 'bold'.
+  const fontWeight = weight === 'medium' ? '500' : weight === 'bold' ? 'bold' : 'normal';
+
   return (
     <text
-      id={testID}
+      id={id}
       style={{
         fontSize: scale.fontSize,
         lineHeight: `${scale.lineHeight}px`,
         color: colorValue,
-        fontWeight: weight,
+        fontWeight,
         ...(lines ? { overflow: 'hidden', textOverflow: 'ellipsis', maxLines: lines } : {}),
         ...style,
       }}
@@ -81,7 +86,8 @@ export interface PressableProps {
   accessibilityLabel: string;
   style?: Record<string, string | number>;
   id?: string;
-  hitSlop?: number;
+  /** Lynx types `hit-slop` as a CSS length. */
+  hitSlop?: `${number}px`;
 }
 
 export function Pressable({
@@ -106,12 +112,12 @@ export function Pressable({
 
   return (
     <view
-      id={testID}
+      id={id}
       accessibility-label={accessibilityLabel}
       accessibility-role="button"
       aria-disabled={inactive}
       aria-selected={selected}
-      hitSlop={hitSlop}
+      hit-slop={hitSlop}
       style={{
         opacity: inactive ? 0.45 : pressed ? 0.75 : 1,
         transitionProperty: 'opacity',
@@ -136,22 +142,25 @@ export function Pressable({
 
 export interface ScreenProps {
   children?: ReactNode;
-  /** Adds the runtime bottom inset; never a hard-coded device value. */
+  /** Applies the runtime bottom inset; never a hard-coded device value. */
   safeBottom?: boolean;
   safeTop?: boolean;
   style?: Record<string, string | number>;
   id?: string;
 }
 
-export function Screen({ children, safeBottom = false, safeTop = true, style, testID }: ScreenProps) {
+export function Screen({ children, safeBottom = false, safeTop = true, style, id }: ScreenProps) {
   const theme = useTheme();
+  const safeArea = useStoreSlice(sessionStore, 'safeArea');
+
   return (
     <view
-      id={testID}
+      id={id}
       style={{
         flex: 1,
         backgroundColor: theme.colors.background,
-        paddingTop: safeTop ? theme.spacing.x3 : 0,
+        paddingTop: safeTop ? `${safeArea.top + theme.spacing.x3}px` : 0,
+        paddingBottom: safeBottom ? `${safeArea.bottom}px` : 0,
         ...style,
       }}
     >

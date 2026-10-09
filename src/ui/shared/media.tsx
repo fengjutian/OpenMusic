@@ -48,7 +48,7 @@ export function Artwork({
 
   return (
     <view
-      id={testID}
+      id={id}
       style={{
         width: `${size}px`,
         height: `${size}px`,
@@ -137,7 +137,7 @@ export function TrackRow({
         }
         disabled={!track.playable}
         onPress={onPress}
-        id={testID ?? `track-row-${track.id}`}
+        id={id ?? `track-row-${track.id}`}
         style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: `${theme.spacing.x3}px` }}
       >
         {showArtwork ? (
@@ -159,7 +159,7 @@ export function TrackRow({
             variant="body"
             lines={1}
             color={playing ? 'brand' : dim ? 'muted' : 'primary'}
-            weight={playing ? 'medium' : 'regular'}
+            weight={playing ? 'medium' : 'normal'}
           >
             {track.title}
           </Text>
@@ -182,7 +182,7 @@ export function TrackRow({
         accessibilityLabel={liked ? `取消收藏 ${track.title}` : `收藏 ${track.title}`}
         loading={likePending}
         onPress={onToggleLike}
-        hitSlop={8}
+        hitSlop={`8px`}
         id={`like-${track.id}`}
         style={{ width: 44, alignItems: 'center' }}
       >
@@ -192,7 +192,7 @@ export function TrackRow({
       <Pressable
         accessibilityLabel={`${track.title} 更多操作`}
         onPress={onOpenMenu}
-        hitSlop={8}
+        hitSlop={`8px`}
         id={`menu-${track.id}`}
         style={{ width: 44, alignItems: 'center' }}
       >
@@ -260,7 +260,7 @@ export function MediaCard({
     <Pressable
       accessibilityLabel={`打开 ${title}`}
       onPress={onPress}
-      id={testID}
+      id={id}
       style={{
         width: `${cardWidth}px`,
         // Leaves the next card peeking in, which is the scroll affordance

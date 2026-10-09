@@ -52,7 +52,7 @@ export function MiniPlayer({
 
   return (
     <view
-      id={testID ?? 'mini-player'}
+      id={id ?? 'mini-player'}
       style={{
         height: `${theme.layout.miniPlayerHeight}px`,
         flexDirection: 'row',
@@ -88,7 +88,7 @@ export function MiniPlayer({
         <Pressable
           accessibilityLabel="重试播放"
           onPress={onRetry}
-          hitSlop={8}
+          hitSlop={`8px`}
           id="mini-player-retry"
           style={{ width: 44, alignItems: 'center' }}
         >
@@ -119,7 +119,7 @@ export function MiniPlayer({
       <Pressable
         accessibilityLabel="下一首"
         onPress={onNext}
-        hitSlop={8}
+        hitSlop={`8px`}
         id="mini-player-next"
         style={{ width: 44, alignItems: 'center' }}
       >
@@ -340,7 +340,7 @@ export function QueueList({
               accessibilityLabel={`下移 ${track.title}`}
               disabled={i >= tracks.length - 1}
               onPress={() => onMove(i, i + 1)}
-              hitSlop={6}
+              hitSlop={`6px`}
               style={{ width: 40, alignItems: 'center' }}
             >
               <Icon name="chevron-down" size={16} color={theme.colors.textMuted} />
@@ -427,7 +427,7 @@ export function LyricsView({
               <view key={`${line.startMs}-${i}`} style={{ gap: 2 }}>
                 <Text
                   variant={active ? 'section' : 'body'}
-                  weight={active ? 'medium' : 'regular'}
+                  weight={active ? 'medium' : 'normal'}
                   color={active ? 'primary' : 'muted'}
                   lines={2}
                 >

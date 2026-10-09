@@ -104,10 +104,12 @@ export function SearchScreen() {
           value={query}
           onChange={(value) => {
             setQuery(value);
-            debouncedSearch(value);
+            // Live pass: only refreshes the "no results" suggestions, so it
+            // owns a throwaway controller — the real request is driven by
+            // `submitted` through useAsyncResource.
+            debouncedSearch(value, new AbortController().signal);
           }}
           onSubmit={() => submit(query)}
-          autoFocus
           id="search-field"
         />
       </view>
@@ -120,7 +122,7 @@ export function SearchScreen() {
                 <Text variant="section" weight="medium">
                   最近搜索
                 </Text>
-                <Pressable accessibilityLabel="清空搜索历史" onPress={clearHistory} id="history-clear" hitSlop={8}>
+                <Pressable accessibilityLabel="清空搜索历史" onPress={clearHistory} id="history-clear" hitSlop={`8px`}>
                   <Text variant="caption" color="muted">
                     清空
                   </Text>
@@ -177,7 +179,7 @@ export function SearchScreen() {
           actionLabel={suggestions[0] ? `搜索「${suggestions[0]}」` : undefined}
           onAction={suggestions[0] ? () => submit(suggestions[0]!) : undefined}
         />
-      ) : (
+      ) : resource.state.status === 'success' ? (
         <SearchResults
           payload={resource.state.data}
           currentTrackId={currentTrackId}
@@ -187,7 +189,7 @@ export function SearchScreen() {
           onOpenAlbum={(id) => navigationActions.push({ key: 'album', id })}
           onOpenArtist={(id) => navigationActions.push({ key: 'artist', id })}
         />
-      )}
+      ) : null}
     </view>
   );
 }
@@ -352,5 +354,3 @@ function ResultSection({ title, children }: { title: string; children: ReactNode
     </view>
   );
 }
-
-export { isCancellation, Icon };

@@ -14,20 +14,37 @@ export interface SearchFieldProps {
   onChange: (value: string) => void;
   onSubmit?: () => void;
   placeholder?: string;
-  autoFocus?: boolean;
   id?: string;
 }
+
+/**
+ * Lynx `<input>` is **uncontrolled**: `@lynx-js/types` `InputProps` exposes
+ * `default-value` (first render only) plus `bindinput`, and no `value` setter.
+ *
+ * Consequences accepted rather than papered over:
+ *  - keystrokes flow through `bindinput` instead of a re-render per character
+ *  - a programmatic clear bumps `fieldKey`, remounting the element so the
+ *    native text really is emptied
+ *  - `confirm-type` replaces the DOM `type` attribute
+ *
+ * Evidence: `node_modules/@lynx-js/types/types/common/element/input.d.ts`.
+ */
 
 export function SearchField({
   value,
   onChange,
   onSubmit,
   placeholder = '搜索歌曲、歌手、专辑',
-  autoFocus = false,
   id,
 }: SearchFieldProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
+  const [fieldKey, setFieldKey] = useState(0);
+
+  const clear = useCallback(() => {
+    onChange('');
+    setFieldKey((k) => k + 1);
+  }, [onChange]);
 
   return (
     <view
@@ -46,23 +63,23 @@ export function SearchField({
     >
       <Icon name="search" size={16} color={theme.colors.textMuted} />
       <input
-        id={testID ?? 'search-input'}
-        value={value}
+        key={fieldKey}
+        id={id ?? 'search-input'}
+        default-value={value}
         placeholder={placeholder}
-        placeholderStyle={`color: ${theme.colors.textMuted}; font-size: 15px;`}
+        placeholder-style={`color: ${theme.colors.textMuted}; font-size: 15px;`}
         style={{ flex: 1, height: 44, color: theme.colors.textPrimary, fontSize: 15 }}
-        bindinput={(e) => onChange(e.detail.value ?? '')}
+        bindinput={(event) => onChange(event.detail.value ?? '')}
         bindconfirm={() => onSubmit?.()}
         bindfocus={() => setFocused(true)}
         bindblur={() => setFocused(false)}
-        autofocus={autoFocus}
-        type="text"
+        confirm-type="search"
       />
       {value.length > 0 ? (
         <Pressable
           accessibilityLabel="清空搜索"
-          onPress={() => onChange('')}
-          hitSlop={8}
+          onPress={clear}
+          hitSlop={`8px`}
           id="search-clear"
           style={{ width: 32, alignItems: 'center' }}
         >
@@ -80,14 +97,14 @@ export interface ChipProps {
   id?: string;
 }
 
-export function Chip({ label, selected = false, onPress, testID }: ChipProps) {
+export function Chip({ label, selected = false, onPress, id }: ChipProps) {
   const theme = useTheme();
   return (
     <Pressable
       accessibilityLabel={label}
       selected={selected}
       onPress={onPress}
-      id={testID}
+      id={id}
       style={{
         paddingLeft: `${theme.spacing.x3}px`,
         paddingRight: `${theme.spacing.x3}px`,
@@ -98,7 +115,7 @@ export function Chip({ label, selected = false, onPress, testID }: ChipProps) {
         marginRight: `${theme.spacing.x2}px`,
       }}
     >
-      <Text variant="caption" color={selected ? 'inverse' : 'secondary'} weight={selected ? 'medium' : 'regular'}>
+      <Text variant="caption" color={selected ? 'inverse' : 'secondary'} weight={selected ? 'medium' : 'normal'}>
         {label}
       </Text>
     </Pressable>
@@ -146,7 +163,7 @@ export function SegmentedTabs<T extends string>({
               backgroundColor: selected ? theme.colors.surface : 'transparent',
             }}
           >
-            <Text variant="caption" weight={selected ? 'medium' : 'regular'} color={selected ? 'primary' : 'secondary'}>
+            <Text variant="caption" weight={selected ? 'medium' : 'normal'} color={selected ? 'primary' : 'secondary'}>
               {option.label}
             </Text>
           </Pressable>
@@ -186,16 +203,20 @@ export function ProgressBar({
 
   const ratio = durationMs > 0 ? Math.max(0, Math.min(1, (dragging ?? positionMs) / durationMs)) : 0;
 
-  // `Touch.x` is relative to the touched element (verified against
-  // @lynx-js/types `events.d.ts`), which is exactly the bar we attach to.
-  const ratioFromEvent = useCallback((event: TouchEvent) => {
-    const x = event.touches?.[0]?.x ?? 0;
-    return Math.max(0, Math.min(1, x / (trackWidth || 1)));
-  }, [trackWidth]);
+  // `Touch.x` is documented as relative to the touched element, which is the
+  // bar we attach to. Typed structurally so we bind to the background-thread
+  // event shape rather than the main-thread worklet one.
+  const ratioFromEvent = useCallback(
+    (event: { touches?: ReadonlyArray<{ x?: number }> }) => {
+      const x = event.touches?.[0]?.x ?? 0;
+      return Math.max(0, Math.min(1, x / (trackWidth || 1)));
+    },
+    [trackWidth],
+  );
 
   return (
     <view
-      id={testID}
+      id={id}
       style={{ width: `${trackWidth}px`, paddingTop: `${theme.spacing.x2}px`, paddingBottom: `${theme.spacing.x2}px` }}
       bindtouchstart={(event) => {
         if (!onSeek) return;
