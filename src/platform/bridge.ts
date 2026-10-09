@@ -15,8 +15,11 @@
 
 import type {
   AnalyticsPort,
+  AppLifecycle,
+  MediaControl,
   PlatformBridgePort,
   PlatformCapabilities,
+  PlatformSignals,
   SafeAreaInsets,
   Unsubscribe,
   WindowSize,
@@ -47,7 +50,15 @@ function nativeGlobals(): NativeGlobal {
 const DEFAULT_ANDROID_INSETS: SafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 const DEFAULT_WINDOWS_SIZE: WindowSize = { width: 1280, height: 800 };
 
-class BaseBridge implements PlatformBridgePort {
+/**
+ * One class that satisfies the three narrow ports (PlatformSignals, MediaControl,
+ * AppLifecycle) plus the legacy combined PlatformBridgePort. The shared methods
+ * are defined once on the base; each platform subclass only supplies the
+ * native-module lookup.
+ */
+abstract class BaseBridge
+  implements PlatformSignals, MediaControl, AppLifecycle, PlatformBridgePort
+{
   readonly platform: 'android' | 'windows';
 
   constructor(platform: 'android' | 'windows') {
@@ -130,9 +141,7 @@ class BaseBridge implements PlatformBridgePort {
     }
   }
 
-  protected nativeModule(): NativeGlobal['openmusicAndroid'] {
-    return undefined;
-  }
+  protected abstract nativeModule(): NativeGlobal['openmusicAndroid'] | NativeGlobal['openmusicWindows'] | undefined;
 }
 
 class AndroidBridge extends BaseBridge {

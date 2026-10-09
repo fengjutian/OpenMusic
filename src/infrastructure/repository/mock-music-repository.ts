@@ -271,6 +271,11 @@ export class MockMusicRepository implements MusicRepository {
     return this.liked.has(trackId);
   }
 
+  /** Most-recent-first list of played track ids (PlaybackHistoryPort). */
+  recent(limit = 50): readonly ID[] {
+    return this.history.slice(0, limit);
+  }
+
   /** Mirrors `mergeById` usage: repositories must not hand back duplicates. */
   mergeTracks(existing: Track[], incoming: Track[]): Track[] {
     return mergeById(existing, incoming);

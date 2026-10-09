@@ -54,10 +54,12 @@ export interface SecureStoragePort {
 }
 
 // ---------------------------------------------------------------------------
-// Repository
+// Repository — split into three narrow ports so the UI imports only what it
+// uses, and so each can be replaced independently (e.g. history in sync with
+// cloud, favorites in a different schema).
 // ---------------------------------------------------------------------------
 
-export interface MusicRepository {
+export interface MusicCatalog {
   getHome(ctx?: RequestContext): Promise<HomePayload>;
   search(
     query: string,
@@ -70,9 +72,23 @@ export interface MusicRepository {
   getArtist(id: ID, ctx?: RequestContext): Promise<ArtistDetail>;
   getLyrics(trackId: ID, ctx?: RequestContext): Promise<LyricLine[]>;
   getLibrary(ctx?: RequestContext): Promise<LibraryPayload>;
-  setLiked(trackId: ID, liked: boolean, ctx?: RequestContext): Promise<void>;
   listTracks(cursor?: string, limit?: number, ctx?: RequestContext): Promise<PageResult<Track>>;
 }
+
+export interface FavoritesPort {
+  setLiked(trackId: ID, liked: boolean, ctx?: RequestContext): Promise<void>;
+  isLiked(trackId: ID): boolean;
+}
+
+export interface PlaybackHistoryPort {
+  /** Records a play so "继续收听" / "最近播放" can show it. */
+  markPlayed(trackId: ID): void;
+  /** Most-recent-first list of played track ids. */
+  recent(limit?: number): readonly ID[];
+}
+
+/** Legacy combined port. New code should depend on one of the three above. */
+export type MusicRepository = MusicCatalog & FavoritesPort & PlaybackHistoryPort;
 
 // ---------------------------------------------------------------------------
 // Media scanner / metadata
@@ -227,19 +243,24 @@ export interface PlatformCapabilities {
   systemNowPlaying: boolean;
 }
 
-export interface PlatformBridgePort {
+export interface PlatformSignals {
   readonly platform: 'android' | 'windows';
-  /**
-   * What is actually wired up right now. The UI hides features whose
-   * capability is false rather than offering dead controls (PRD §13).
-   */
   capabilities(): PlatformCapabilities;
   safeAreaInsets(): SafeAreaInsets;
   windowSize(): WindowSize;
+}
+
+export interface MediaControl {
   onAudioFocusChange(listener: (focused: boolean) => void): Unsubscribe;
   onMediaButton(listener: (command: 'play' | 'pause' | 'next' | 'previous') => void): Unsubscribe;
+}
+
+export interface AppLifecycle {
   onAppStateChange(listener: (state: 'active' | 'background') => void): Unsubscribe;
 }
+
+/** Legacy combined port. New code should depend on the narrow ones. */
+export type PlatformBridgePort = PlatformSignals & MediaControl & AppLifecycle;
 
 export interface AnalyticsPort {
   track(event: string, props?: Record<string, string | number | boolean>): void;

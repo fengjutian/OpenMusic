@@ -7,8 +7,7 @@
  * `import { usePlayerIntents } from '.../use-player'` keep working.
  */
 
-export { usePlayerIntents, useLikeToggle, useRestorePlayer, buildPlaybackContext } from './intents.ts';
-export { usePlayerIntents as _usePlayerIntents } from './intents.ts';
+export { usePlayerIntents, useLikeToggle, useRestorePlayer, buildPlaybackContext } from './intents';
 export {
   usePlayerSnapshot,
   usePlayerStatus,
@@ -16,7 +15,7 @@ export {
   usePlaybackTrack,
   useCurrentTrackId,
   usePlayerFull,
-} from './snapshots.ts';
-export { ConnectedMiniPlayer } from './connected-mini-player.tsx';
-export type { PlayerIntent, PlaybackContextSource } from './intents.ts';
-export type { PlayerProgress } from './snapshots.ts';
+} from './snapshots';
+export { ConnectedMiniPlayer } from './connected-mini-player';
+export type { PlayerIntent, PlaybackContextSource } from './intents';
+export type { PlayerProgress } from './snapshots';
