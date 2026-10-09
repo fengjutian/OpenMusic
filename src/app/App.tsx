@@ -29,6 +29,9 @@ export function App() {
       offFocus();
       offButton();
     };
+    // `getServices()` is a module singleton, so the service object is stable
+    // for the lifetime of the app; re-running this effect would double-subscribe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

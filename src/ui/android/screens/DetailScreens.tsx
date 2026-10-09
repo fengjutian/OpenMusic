@@ -1,4 +1,4 @@
-import { useCallback, useState } from '@lynx-js/react';
+import { useCallback, useMemo, useState } from '@lynx-js/react';
 
 import { getServices } from '../../../app/services.js';
 import { libraryActions, navigationActions } from '../../../application/stores.js';
@@ -115,12 +115,15 @@ export function PlaylistScreen({ id }: { id: string }) {
   );
 
   const data = resource.state.status === 'success' ? resource.state.data : null;
-  const tracks = data?.tracks ?? [];
-  const context: PlaybackContext = {
-    id: data?.id ?? id,
-    kind: 'playlist',
-    title: data?.title ?? '歌单',
-  };
+  const tracks = useMemo(() => data?.tracks ?? [], [data]);
+  const context: PlaybackContext = useMemo(
+    () => ({
+      id: data?.id ?? id,
+      kind: 'playlist',
+      title: data?.title ?? '歌单',
+    }),
+    [data, id],
+  );
 
   const playAll = useCallback(() => {
     void intents.playTracks(context, tracks, 0);

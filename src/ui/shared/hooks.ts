@@ -76,8 +76,15 @@ export function useDebouncedCallback<A extends unknown[]>(
   delayMs: number,
 ): (...args: A) => void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keeping the latest callback in a ref is fine, but writing to it during
+  // render is not — the write happens in an effect instead.
   const callbackRef = useRef(callback);
-  callbackRef.current = callback;
+  const delayRef = useRef(delayMs);
+
+  useEffect(() => {
+    callbackRef.current = callback;
+    delayRef.current = delayMs;
+  }, [callback, delayMs]);
 
   useEffect(
     () => () => {
@@ -89,8 +96,9 @@ export function useDebouncedCallback<A extends unknown[]>(
   return useCallback(
     (...args: A) => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => callbackRef.current(...args), delayMs);
+      const delay = delayRef.current;
+      timerRef.current = setTimeout(() => callbackRef.current(...args), delay);
     },
-    [delayMs],
+    [],
   );
 }

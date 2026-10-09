@@ -51,9 +51,11 @@ export class MemorySqlDriver implements SqlDriver {
 
   async query(stmt: SqlStatement): Promise<SqlResult> {
     if (/FROM sqlite_master/.test(stmt.sql)) {
-      const rows = [...this.tables.keys()]
-        .filter((name) => name !== 'schema_version')
-        .map((name) => ({ name }));
+      // `schema_version` is created by the migration itself, so it only shows
+      // up once it has been recorded as applied.
+      const rows = [...this.tables.entries()]
+        .filter(([name, state]) => name !== 'schema_version' || state.rows.size > 0)
+        .map(([name]) => ({ name }));
       return { rows, rowsAffected: 0 };
     }
     if (/MAX\(version\)/.test(stmt.sql)) {

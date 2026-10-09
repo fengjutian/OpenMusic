@@ -3,7 +3,7 @@ import type { ReactNode } from '@lynx-js/react';
 
 import { getServices } from '../../../app/services.js';
 import type { AppError } from '../../../domain/errors.js';
-import type { SearchPayload, Track } from '../../../domain/models.js';
+import type { SearchPayload } from '../../../domain/models.js';
 import { SEARCH_DEBOUNCE_MS } from '../../../domain/search.js';
 import { useTheme } from '../../shared/theme.js';
 import { useAsyncResource, useDebouncedCallback } from '../../shared/hooks.js';
@@ -16,6 +16,17 @@ import { useCurrentTrackId, useLikeToggle, usePlayerIntents } from '../../shared
 import type { PlaybackContext } from '../../../domain/playback.js';
 
 const HISTORY_KEY = 'search.history.v1';
+
+/** Stable reference for the "no query" branch; avoids re-running the effect. */
+const EMPTY_PAYLOAD: SearchPayload = {
+  query: '',
+  tracks: [],
+  artists: [],
+  albums: [],
+  playlists: [],
+  hasResults: false,
+  suggestions: [],
+};
 
 export function SearchScreen() {
   const theme = useTheme();
@@ -37,11 +48,11 @@ export function SearchScreen() {
   }, [services]);
 
   const runSearch = useCallback(
-    async (raw: string, signal: AbortSignal) => {
+    async (raw: string, signal: AbortSignal): Promise<SearchPayload> => {
       const trimmed = raw.trim();
       if (!trimmed) {
         setSuggestions([]);
-        return null;
+        return EMPTY_PAYLOAD;
       }
       const payload = await services.repository.search(trimmed, 'all', undefined, { signal });
       setSuggestions(payload.hasResults ? [] : payload.suggestions);
@@ -51,10 +62,10 @@ export function SearchScreen() {
   );
 
   const debouncedSearch = useDebouncedCallback(runSearch, SEARCH_DEBOUNCE_MS);
-  const resource = useAsyncResource(
+  const resource = useAsyncResource<SearchPayload>(
     (signal) => runSearch(submitted, signal),
     [submitted],
-    { isEmpty: (data) => !data || !data.hasResults },
+    { isEmpty: (data) => !data.hasResults },
   );
 
   const commitHistory = useCallback(

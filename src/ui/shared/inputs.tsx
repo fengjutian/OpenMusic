@@ -105,6 +105,7 @@ export function Chip({ label, selected = false, onPress, id }: ChipProps) {
       selected={selected}
       onPress={onPress}
       id={id}
+      data-testid={id}
       style={{
         paddingLeft: `${theme.spacing.x3}px`,
         paddingRight: `${theme.spacing.x3}px`,
@@ -217,6 +218,7 @@ export function ProgressBar({
   return (
     <view
       id={id}
+      data-testid={id}
       style={{ width: `${trackWidth}px`, paddingTop: `${theme.spacing.x2}px`, paddingBottom: `${theme.spacing.x2}px` }}
       bindtouchstart={(event) => {
         if (!onSeek) return;

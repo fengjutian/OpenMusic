@@ -116,6 +116,14 @@ export class FakeAudioEngine implements AudioEnginePort {
     this.emit({ type: 'pause' });
   }
 
+  /**
+   * Push an event as if the platform had produced it. Tests use this to replay
+   * late callbacks from a superseded load (technical spec §20 / §26).
+   */
+  emitEvent(event: AudioEvent): void {
+    this.emit(event);
+  }
+
   private startTimer(): void {
     if (this.timer) return;
     this.timer = setInterval(() => {

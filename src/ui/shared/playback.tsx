@@ -3,7 +3,7 @@
  * talk to the audio engine (technical spec §6).
  */
 
-import { useMemo, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from '@lynx-js/react';
 
 import type { LyricLine, Track } from '../../domain/models.js';
 import type { PlaybackMode } from '../../domain/models.js';
@@ -275,7 +275,7 @@ export function PlaybackControls({
 export interface QueueListProps {
   contextTitle: string;
   tracks: Track[];
-  index: number;
+  /** Track id at the playhead; drives the brand-colour highlight. */
   currentTrackId: string | null;
   manualCount: number;
   onSelect: (index: number) => void;
@@ -287,7 +287,6 @@ export interface QueueListProps {
 export function QueueList({
   contextTitle,
   tracks,
-  index,
   currentTrackId,
   manualCount,
   onSelect,
@@ -381,12 +380,30 @@ export function LyricsView({
     [lines],
   );
   const activeIndex = findLyricIndex(sorted, positionMs);
-  const [userScrollingUntil, setUserScrollingUntil] = useState(0);
-  const following = Date.now() >= userScrollingUntil;
 
-  const onUserScroll = () => {
-    setUserScrollingUntil(Date.now() + LYRIC_FOLLOW_PAUSE_MS);
-  };
+  /**
+   * Auto-follow yields to manual scrolling for 4s.
+   *
+   * Implemented as a boolean plus a timer rather than comparing `Date.now()`
+   * during render: render must be pure, and a render-time clock read would
+   * never re-evaluate on its own — the "回到当前歌词" button would stay
+   * visible forever.
+   */
+  const [following, setFollowing] = useState(true);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+  }, []);
+
+  const onUserScroll = useCallback(() => {
+    setFollowing(false);
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      setFollowing(true);
+      resumeTimerRef.current = null;
+    }, LYRIC_FOLLOW_PAUSE_MS);
+  }, []);
 
   if (loading) {
     return (
@@ -447,7 +464,7 @@ export function LyricsView({
       {!following ? (
         <Pressable
           accessibilityLabel="回到当前歌词"
-          onPress={() => setUserScrollingUntil(0)}
+          onPress={() => setFollowing(true)}
           id="lyrics-follow-button"
           style={{
             position: 'absolute',

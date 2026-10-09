@@ -108,7 +108,7 @@ export function LibraryScreen() {
                   id="library-play-liked"
                   style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: `${theme.spacing.x4}px`, paddingRight: `${theme.spacing.x4}px`, minHeight: 72 }}
                 >
-                  <Artwork src={data.likedTracks[0]?.coverUrl} size={56} fallbackIcon="heart" />
+                  <Artwork src={data.likedTracks[0]?.coverUrl} size={56} fallbackIcon="music" />
                   <view style={{ flex: 1, paddingLeft: `${theme.spacing.x3}px` }}>
                     <Text variant="body" weight="medium">
                       喜欢的音乐

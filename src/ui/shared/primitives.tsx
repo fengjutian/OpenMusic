@@ -58,6 +58,7 @@ export function Text({
   return (
     <text
       id={id}
+      data-testid={id}
       style={{
         fontSize: scale.fontSize,
         lineHeight: `${scale.lineHeight}px`,
@@ -113,6 +114,8 @@ export function Pressable({
   return (
     <view
       id={id}
+      data-testid={id}
+      data-testid={id}
       accessibility-label={accessibilityLabel}
       accessibility-role="button"
       aria-disabled={inactive}
@@ -156,6 +159,7 @@ export function Screen({ children, safeBottom = false, safeTop = true, style, id
   return (
     <view
       id={id}
+      data-testid={id}
       style={{
         flex: 1,
         backgroundColor: theme.colors.background,

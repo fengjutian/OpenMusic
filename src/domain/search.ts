@@ -54,16 +54,20 @@ export function relevanceScore(
   return 0;
 }
 
-/** "No results for X" → suggest dropping the last character / swapping terms. */
+/** "No results for X" → suggest a real catalogue match, then a truncation. */
 export function rewriteSuggestions(query: string, catalogue: string[]): string[] {
   const q = normalizeQuery(query);
   if (!q) return [];
+
+  // A real catalogue entry is a much better suggestion than a blind truncation,
+  // so those come first.
+  const sameLength = catalogue.filter((c) => c.length === q.length && c.startsWith(q[0]!));
   const out: string[] = [];
-  if (q.length > 1) out.push(q.slice(0, -1));
-  const head = q[0]!;
-  const sameLength = catalogue.filter((c) => c.length === q.length && c.startsWith(head));
-  for (const c of sameLength) {
-    if (c !== q && out.length < 3) out.push(c);
+  for (const candidate of sameLength) {
+    if (candidate !== q && !out.includes(candidate) && out.length < 3) out.push(candidate);
+  }
+  if (q.length > 1 && out.length < 3 && !out.includes(q.slice(0, -1))) {
+    out.push(q.slice(0, -1));
   }
   return out;
 }

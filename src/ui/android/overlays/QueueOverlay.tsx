@@ -47,7 +47,6 @@ export function QueueOverlay({ onClose }: { onClose: () => void }) {
         <QueueList
           contextTitle={player.queue.context.title}
           tracks={player.queue.tracks}
-          index={player.queue.index}
           currentTrackId={currentId}
           manualCount={player.queue.manualIds.length}
           onSelect={(i) => {

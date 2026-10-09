@@ -3,7 +3,7 @@
  * plumbing, and so a component can subscribe to exactly the slice it renders.
  */
 
-import { useCallback, useRef, useSyncExternalStore } from '@lynx-js/react';
+import { useEffect, useRef, useState, useSyncExternalStore } from '@lynx-js/react';
 import type { Store } from './create-store.js';
 
 export function useStore<T extends object>(store: Store<T>): T {
@@ -23,18 +23,32 @@ export function useStoreSelector<T extends object, S>(
   select: (state: T) => S,
   isEqual: (a: S, b: S) => boolean = Object.is,
 ): S {
-  const snapshot = useRef<{ value: S; initialised: boolean }>({ value: undefined as never, initialised: false });
+  const [value, setValue] = useState<S>(() => select(store.getState()));
 
-  const getSnapshot = useCallback(() => {
-    const next = select(store.getState());
-    if (snapshot.current.initialised && isEqual(snapshot.current.value, next)) {
-      return snapshot.current.value;
-    }
-    snapshot.current = { value: next, initialised: true };
-    return next;
-  }, [store, select, isEqual]);
+  const selectRef = useRef(select);
+  const isEqualRef = useRef(isEqual);
+  useEffect(() => {
+    selectRef.current = select;
+    isEqualRef.current = isEqual;
+  });
 
-  return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
+  useEffect(() => {
+    // Re-sync once on mount in case the store changed between the first render
+    // and subscription.
+    setValue((prev) => {
+      const next = selectRef.current(store.getState());
+      return isEqualRef.current(prev, next) ? prev : next;
+    });
+
+    return store.subscribe(() => {
+      setValue((prev) => {
+        const next = selectRef.current(store.getState());
+        return isEqualRef.current(prev, next) ? prev : next;
+      });
+    });
+  }, [store]);
+
+  return value;
 }
 
 export function shallowArrayEqual<T>(a: readonly T[] | undefined, b: readonly T[] | undefined): boolean {

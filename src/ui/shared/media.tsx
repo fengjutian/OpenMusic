@@ -49,6 +49,7 @@ export function Artwork({
   return (
     <view
       id={id}
+      data-testid={id}
       style={{
         width: `${size}px`,
         height: `${size}px`,
@@ -204,7 +205,6 @@ export function TrackRow({
 
 function EqualizerBars({ buffering }: { buffering: boolean }) {
   const theme = useTheme();
-  const height = buffering ? 12 : 16;
   return (
     <view
       accessibility-label="正在播放"
@@ -261,6 +261,7 @@ export function MediaCard({
       accessibilityLabel={`打开 ${title}`}
       onPress={onPress}
       id={id}
+      data-testid={id}
       style={{
         width: `${cardWidth}px`,
         // Leaves the next card peeking in, which is the scroll affordance
