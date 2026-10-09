@@ -86,72 +86,74 @@ export class PlayerCoordinator {
      */
     private readonly bridge?: PlatformBridgePort,
   ) {
+    // Host closures must reference the coordinator instance, not the host
+    // object. A `get` accessor in an object literal binds `this` to the host,
+    // so we capture `self` from the enclosing constructor scope instead.
+    const self = this as PlayerCoordinator;
+
     const queueHost: PlayerHost = {
       get queue() {
-        return (this as unknown as PlayerCoordinator).queue;
+        return self.queue;
       },
-      replaceQueue: (next) => (this as unknown as PlayerCoordinator).replaceQueue(next),
-      loadCurrent: (positionMs, autoplay) =>
-        (this as unknown as PlayerCoordinator).loadCurrent(positionMs, autoplay),
-    } as PlayerHost;
+      replaceQueue: (next) => self.replaceQueue(next),
+      loadCurrent: (positionMs, autoplay) => self.loadCurrent(positionMs, autoplay),
+    };
     this.queueController = new QueueController(queueHost);
 
     const transportHost: TransportHost = {
       get queue() {
-        return (this as unknown as PlayerCoordinator).queue;
+        return self.queue;
       },
       get mode() {
-        return (this as unknown as PlayerCoordinator).mode;
+        return self.mode;
       },
       get shuffleOrder() {
-        return (this as unknown as PlayerCoordinator).shuffleOrder;
+        return self.shuffleOrder;
       },
       get hasError() {
-        return (this as unknown as PlayerCoordinator).error !== null;
+        return self.error !== null;
       },
-      currentPositionMs: () => (this as unknown as PlayerCoordinator).positionMs,
-      replaceQueue: (next) => (this as unknown as PlayerCoordinator).replaceQueue(next),
-      loadCurrent: (positionMs, autoplay) =>
-        (this as unknown as PlayerCoordinator).loadCurrent(positionMs, autoplay),
-      setStatusError: (message) => (this as unknown as PlayerCoordinator).setStatusError(message),
-      cycleMode: async () => (this as unknown as PlayerCoordinator).cycleModeInternal(),
-      setMode: async (mode) => (this as unknown as PlayerCoordinator).setModeInternal(mode),
-      rebuildShuffleOrder: () => (this as unknown as PlayerCoordinator).rebuildShuffleOrder(),
-    } as TransportHost;
+      currentPositionMs: () => self.positionMs,
+      replaceQueue: (next) => self.replaceQueue(next),
+      loadCurrent: (positionMs, autoplay) => self.loadCurrent(positionMs, autoplay),
+      setStatusError: (message) => self.setStatusError(message),
+      pause: () => self.engine.pause(),
+      cycleMode: async () => self.cycleModeInternal(),
+      setMode: async (mode) => self.setModeInternal(mode),
+      rebuildShuffleOrder: () => self.rebuildShuffleOrder(),
+    };
     this.stateMachine = new PlayerStateMachine(transportHost);
 
     const engineHost: EngineHost = {
-      currentTrackId: () => currentTrack(this.queue)?.id ?? null,
-      currentPositionMs: () => this.positionMs,
-      currentDurationMs: () => this.durationMs,
-      loadToken: () => this.loadToken,
-      bumpLoadToken: () => ++this.loadToken,
-      setStatus: (status) => this.setStateField('status', status),
-      setError: (error) => this.setStateField('error', error),
-      setPositionMs: (ms) => this.setStateField('positionMs', ms),
-      setDurationMs: (ms) => this.setStateField('durationMs', ms),
-      persistNow: async () => this.persistence.persist(false),
-      notifyEnded: async () => this.next(),
+      currentTrackId: () => currentTrack(self.queue)?.id ?? null,
+      currentPositionMs: () => self.positionMs,
+      loadToken: () => self.loadToken,
+      setStatus: (status) => self.setStateField('status', status),
+      setError: (error) => self.setStateField('error', error),
+      setPositionMs: (ms) => self.setStateField('positionMs', ms),
+      setDurationMs: (ms) => self.setStateField('durationMs', ms),
+      persistNow: async () => self.persistence.persist(false),
+      notifyEnded: async () => self.next(),
       setErrorGeneric: () =>
-        this.setStateField(
+        self.setStateField(
           'error',
           new AppError('unknown', '播放出错了，可以重试或跳到下一首'),
         ),
     };
-    this.engineAdapter = new EngineAdapter(engine, engineHost);
+    this.engineAdapter = new EngineAdapter(engineHost);
 
     const persistHost: PersistHost = {
-      currentTrack: () => currentTrack(this.queue),
-      currentPositionMs: () => this.positionMs,
-      currentMode: () => this.mode,
+      currentTrack: () => currentTrack(self.queue),
+      currentPositionMs: () => self.positionMs,
+      currentMode: () => self.mode,
       currentQueueSnapshot: () => {
-        if (!this.queue) return null;
+        if (!self.queue) return null;
         return {
-          contextId: this.queue.context.id,
-          contextKind: this.queue.context.kind,
-          contextTitle: this.queue.context.title,
-          queueTrackIds: this.queue.tracks.map((t) => t.id),
-          index: this.queue.index,
+          contextId: self.queue.context.id,
+          contextKind: self.queue.context.kind,
+          contextTitle: self.queue.context.title,
+          queueTrackIds: self.queue.tracks.map((t) => t.id),
+          index: self.queue.index,
         };
       },
     };

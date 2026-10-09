@@ -23,6 +23,12 @@ export interface TransportHost {
   cycleMode(): Promise<PlaybackMode>;
   setMode(mode: PlaybackMode): Promise<void>;
   setStatusError(message: string): void;
+  /**
+   * Ask the engine to stop. The resulting `pause` event transitions the
+   * coordinator's status to `paused` and flushes the snapshot — both
+   * `playPause` and end-of-queue go through this path.
+   */
+  pause(): Promise<void>;
   rebuildShuffleOrder(): void;
 }
 
@@ -48,7 +54,8 @@ export class PlayerStateMachine {
   }
 
   async pause(): Promise<void> {
-    await this.host.loadCurrent(0, false);
+    if (!this.host.queue) return;
+    await this.host.pause();
   }
 
   async next(): Promise<void> {
@@ -61,6 +68,9 @@ export class PlayerStateMachine {
     });
     if (next === null) {
       this.host.setStatusError('已到队列末尾');
+      // Reaching the end of the queue is the same user-visible outcome as a
+      // pause: stop the engine, surface the toast, flush the snapshot.
+      await this.host.pause();
       return;
     }
     this.host.replaceQueue({ ...this.host.queue, index: next });
