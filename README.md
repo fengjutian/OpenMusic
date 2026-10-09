@@ -30,7 +30,7 @@ npm run build          # 产出 dist/main.lynx.bundle + dist/main.web.bundle
 
 # Windows host（Edge / WebView2 直接加载同一份 web bundle）
 npm run prepare:windows-host    # 拷贝 web-core + remote-web-worker 到 vendor/
-npm run serve:windows-host      # http://127.0.0.1:4173/windows/host/index.html
+npm run serve:windows-host      # 构建 Windows UI、准备 Host 并打开桌面端
 ```
 
 单独运行某一环节：
