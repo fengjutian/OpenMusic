@@ -42,6 +42,12 @@ export interface WebAudioEngineOptions {
   mount?: HTMLElement | null;
 }
 
+type MediaPlaybackState = 'none' | 'paused' | 'playing';
+interface NowPlayingSnapshot {
+  metadata: MediaMetadataInit;
+  playbackState: MediaPlaybackState;
+}
+
 export class WebAudioEngine implements AudioEnginePort {
   private readonly listeners = new Set<(event: AudioEvent) => void>();
   private readonly tickMs: number;
@@ -57,6 +63,11 @@ export class WebAudioEngine implements AudioEnginePort {
   private disposed = false;
   /** Monotonic counter; only the newest load publishes state. */
   private loadToken = 0;
+  /** Most recent metadata publish — used by tests + diagnostics. */
+  lastNowPlaying: NowPlayingSnapshot = {
+    metadata: { title: '', artist: '', album: '' },
+    playbackState: 'none',
+  };
 
   constructor(options: WebAudioEngineOptions = {}) {
     this.tickMs = options.tickMs ?? 250;
@@ -185,6 +196,36 @@ export class WebAudioEngine implements AudioEnginePort {
   }
 
   // ---------------------------------------------------------------------
+  // Stage-10 bridge: bundle → host
+  // ---------------------------------------------------------------------
+
+  /**
+   * Public hook used by `src/app/services.ts` to keep the browser's
+   * `MediaSession` in sync with `PlayerCoordinator` state. The bundle
+   * subscribes to the coordinator and calls this on every track change
+   * and on every play / pause transition.
+   *
+   * Safe to call when `navigator.mediaSession` does not exist (workers,
+   * non-secure contexts) — the engine silently no-ops so the controller
+   * does not have to special-case the host.
+   */
+  updateNowPlaying(
+    metadata: MediaMetadataInit,
+    playbackState: MediaPlaybackState,
+  ): void {
+    this.lastNowPlaying = { metadata, playbackState };
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata(metadata);
+      navigator.mediaSession.playbackState = playbackState;
+    } catch (cause) {
+      // MediaMetadata can throw on unsupported members (e.g. AVIF artwork).
+      // Surface but don't break playback.
+      console.warn('[WebAudioEngine] updateNowPlaying failed:', cause);
+    }
+  }
+
+  // ---------------------------------------------------------------------
   // internals
   // ---------------------------------------------------------------------
 
@@ -209,16 +250,17 @@ export class WebAudioEngine implements AudioEnginePort {
    * (it is not derived from the `<audio>` element's src or tracks). We seed
    * a placeholder so the OS UI knows "something is playing" the moment the
    * engine activates; full metadata (title / artist / album / artwork)
-   * needs the bundle → host bridge documented in stage 10.
+   * flows through the bundle → host bridge documented in stage 10.
    */
   private applyDefaultMediaSession(): void {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
     try {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: 'OpenMusic',
-        artist: '正在准备',
-        album: '',
-      });
+      // Use the same `lastNowPlaying` snapshot path so tests + diagnostics
+      // see one source of truth.
+      this.updateNowPlaying(
+        { title: 'OpenMusic', artist: '正在准备', album: '' },
+        'paused',
+      );
       // Hand the browser the play/pause/seek action handlers so the OS media
       // keys work. We delegate back to the host via custom events because the
       // PlayerCoordinator is unreachable from this DOM node.

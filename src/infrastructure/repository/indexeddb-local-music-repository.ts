@@ -63,6 +63,8 @@ interface LikedRow {
 }
 
 interface HistoryRow {
+  /** Auto-assigned by the `history` object store (`autoIncrement`). */
+  seq?: number;
   trackId: ID;
   playedAt: number;
 }
@@ -74,6 +76,7 @@ export class IndexedDbLocalMusicRepository
   private readonly openFn: typeof openOpenMusicDb;
   private hydrationError: Error | null = null;
   private readonly readyPromise: Promise<void>;
+  private readonly pendingWrites: Set<Promise<unknown>> = new Set();
 
   constructor(options: IndexedDbLocalMusicRepositoryOptions = {}) {
     super({
@@ -103,6 +106,27 @@ export class IndexedDbLocalMusicRepository
    */
   get persistentError(): Error | null {
     return this.hydrationError;
+  }
+
+  /**
+   * Wait for any in-flight `IndexedDB` writes to complete. Use this in
+   * tests before `close()`, and in `ServicesProvider.dispose()` so the
+   * user's last action lands on disk before the page unloads.
+   */
+  async flush(): Promise<void> {
+    await this.readyPromise;
+    while (this.pendingWrites.size > 0) {
+      const batch = [...this.pendingWrites];
+      await Promise.allSettled(batch);
+    }
+  }
+
+  private trackWrite<T>(promise: Promise<T>): Promise<T> {
+    this.pendingWrites.add(promise);
+    promise.finally(() => {
+      this.pendingWrites.delete(promise);
+    });
+    return promise;
   }
 
   /**
@@ -136,12 +160,14 @@ export class IndexedDbLocalMusicRepository
     if (!this.db || this.db.error) return;
     if (liked) {
       const row: LikedRow = { trackId, likedAt: Date.now() };
-      await this.db.putAll('liked', [row]);
+      await this.trackWrite(this.db.putAll('liked', [row]));
     } else {
       // `clear` is the only way to delete by key in our small driver.
-      await runOnTxSafely(this.db, 'liked', 'readwrite', (store) => ({
-        delete: store.delete(trackId),
-      }));
+      await this.trackWrite(
+        runOnTxSafely(this.db, 'liked', 'readwrite', (store) => ({
+          delete: store.delete(trackId),
+        })),
+      );
     }
   }
 
@@ -149,7 +175,7 @@ export class IndexedDbLocalMusicRepository
     super.markPlayed(trackId);
     if (!this.db || this.db.error) return;
     const row: HistoryRow = { trackId, playedAt: Date.now() };
-    void this.db.putAll('history', [row]);
+    void this.trackWrite(this.db.putAll('history', [row]));
   }
 
   override listTracks(
@@ -198,7 +224,7 @@ export class IndexedDbLocalMusicRepository
   override registerPlaylist(playlist: Playlist): void {
     super.registerPlaylist(playlist);
     if (!this.db || this.db.error) return;
-    void this.db.putAll('playlists', [playlist]);
+    void this.trackWrite(this.db.putAll('playlists', [playlist]));
   }
 
   // ---------------------------------------------------------------------
@@ -220,6 +246,10 @@ export class IndexedDbLocalMusicRepository
 
       if (existing.length === 0 && callerHasSeed) {
         // First boot for this user. Persist whatever the bootstrapper passed.
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[openmusic] first-boot: persisting ${this.tracks.length} tracks to IndexedDB`,
+        );
         await db.putAll('tracks', this.tracks);
         if (this.liked.size > 0) {
           const rows = [...this.liked].map<LikedRow>((trackId) => ({
@@ -235,17 +265,9 @@ export class IndexedDbLocalMusicRepository
         await db.putAll('tracks', this.tracks);
       } else {
         // Either no seed supplied (typical refresh after first boot), or
-        // seed matches disk. Hydrate likes and history so previous-session
-        // state surfaces immediately.
-        if (existing.length === 0) {
-          // Truly empty — confirm cache reflects that.
-          this.loadCatalog({ tracks: [] });
-        } else if (callerHasSeed) {
-          // Caller passed an identical seed; disk already has it. Hydrate
-          // from disk so likes/history side-effects that landed while the
-          // connection was idle survive.
-          this.loadCatalog({ tracks: existing });
-        }
+        // seed matches disk. Whatever the bootstrapper passed is replaced
+        // by disk truth — `loadCatalog` clears history so the deduped IDB
+        // log becomes the authoritative most-recent-first list.
         const likedRows = await db.getAll<LikedRow>('liked');
         const historyRows = await db.getAll<HistoryRow>('history');
         this.loadCatalog({
@@ -270,8 +292,24 @@ export class IndexedDbLocalMusicRepository
   }
 
   private restoreHistory(rows: HistoryRow[]): void {
-    const orderedRows = [...rows].sort((a, b) => b.playedAt - a.playedAt);
-    this.history = orderedRows.slice(0, 50).map((row) => row.trackId);
+    // Sort by `seq` desc, falling back to `playedAt` desc for any rows
+    // without a `seq` (older schemas). Deduplicate by `trackId` keeping the
+    // most-recent insertion — `markPlayed` already deduplicates the live
+    // cache, but the on-disk log accumulates every tap so a reload would
+    // otherwise repeat favourites.
+    const orderedRows = [...rows].sort(
+      (a, b) =>
+        (b.seq ?? 0) - (a.seq ?? 0) || b.playedAt - a.playedAt,
+    );
+    const seen = new Set<ID>();
+    const deduped: ID[] = [];
+    for (const row of orderedRows) {
+      if (seen.has(row.trackId)) continue;
+      seen.add(row.trackId);
+      deduped.push(row.trackId);
+      if (deduped.length >= 50) break;
+    }
+    this.history = deduped;
   }
 
   private async replaceCatalogInIdb(seed: Track[]): Promise<void> {

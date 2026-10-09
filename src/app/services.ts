@@ -30,6 +30,7 @@ import type {
 } from '../domain/ports.js';
 import { FakeAudioEngine } from '../infrastructure/audio/fake-audio-engine.js';
 import { WebAudioEngine } from '../infrastructure/audio/web-audio-engine.js';
+import { IndexedDbLocalMusicRepository } from '../infrastructure/repository/indexeddb-local-music-repository.js';
 import { LocalMusicRepository } from '../infrastructure/repository/local-music-repository.js';
 import { MockMusicRepository } from '../infrastructure/repository/mock-music-repository.js';
 import {
@@ -79,9 +80,28 @@ export interface Services {
 const WEB_DEMO_AUDIO_URL = '../assets/audio/sample.mp3';
 
 /**
- * Detect whether we are running in a web host (WebView2 / Edge / browser).
- * The web runtime exposes `document` + `HTMLAudioElement`; the ReactLynx
- * Android / iOS runtime does not.
+ * Detect whether we are running in a web platform context (browser,
+ * WebView2, Edge) — main thread OR worker scope. Web workers share
+ * IndexedDB with the main thread on the same origin, so the catalog and
+ * persistence layer work correctly even when the ReactLynx bundle runs
+ * inside web-core's worker (where `document` is undefined).
+ *
+ * `isWebHost()` (now specialised for the audio engine) keeps the
+ * main-thread-only check because `HTMLAudioElement` defaults to
+ * `document.body` for MediaSession tracking and that path does not exist
+ * in a pure worker context.
+ */
+function isWebPlatform(): boolean {
+  return (
+    typeof indexedDB !== 'undefined' &&
+    typeof globalThis.process === 'undefined'
+  );
+}
+
+/**
+ * Detect whether `HTMLAudioElement` is available in this realm. The web
+ * main thread has it; web workers cannot attach it to a DOM for
+ * MediaSession tracking, so this stays main-thread-only.
  */
 function isWebHost(): boolean {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
@@ -100,6 +120,67 @@ function isWebHost(): boolean {
 function pickAudioEngine(explicit?: AudioEnginePort): AudioEnginePort {
   if (explicit) return explicit;
   return isWebHost() ? new WebAudioEngine() : new FakeAudioEngine();
+}
+
+/**
+ * Stage-10 bridge: subscribe the audio engine to `PlayerCoordinator` so the
+ * browser's `MediaSession` (OS-level media keys, taskbar thumbnail)
+ * reflects the current track. The host already wires `MediaSession.action`
+ * events back into the bundle via `CustomEvent('openmusic:media')` (see
+ * `WebAudioEngine.applyDefaultMediaSession`); metadata flowing the other
+ * direction was missing.
+ *
+ * Safe in non-web contexts: `WebAudioEngine.updateNowPlaying` no-ops when
+ * `navigator.mediaSession` is unavailable, so the FakeAudioEngine path
+ * (the only one in RN-native / unit tests) is unchanged.
+ */
+function wireMediaSessionBridge(
+  player: PlayerCoordinator,
+  engine: AudioEnginePort,
+): void {
+  if (typeof engine !== 'object' || engine === null) return;
+  if (typeof (engine as { updateNowPlaying?: unknown }).updateNowPlaying !== 'function') {
+    return;
+  }
+  const updatable = engine as unknown as {
+    updateNowPlaying(
+      metadata: MediaMetadataInit,
+      playbackState: 'none' | 'paused' | 'playing',
+    ): void;
+  };
+  player.subscribe(() => {
+    const snapshot = player.getPlaybackSnapshot();
+    if (!snapshot) {
+      updatable.updateNowPlaying(
+        { title: 'OpenMusic', artist: '正在准备', album: '' },
+        'none',
+      );
+      return;
+    }
+    const { track } = snapshot;
+    updatable.updateNowPlaying(
+      {
+        title: track.title,
+        artist: track.artists.map((a) => a.name).join(' / '),
+        album: track.album?.title ?? '',
+        artwork: track.coverUrl ? [{ src: track.coverUrl }] : undefined,
+      },
+      // PlayerCoordinator's status is one of playing / paused / loading /
+      // error / idle; MediaSession only knows three states — collapsed.
+      snapshot.durationMs > 0 && hasPlayingIntent(player)
+        ? 'playing'
+        : 'paused',
+    );
+  });
+}
+
+/**
+ * `PlayerCoordinator` does not directly expose `isPlaying`, but
+ * `getSnapshot().status` is the cleanest signal for the bridge. Wrapped
+ * here so the shape changes do not leak into `MediaSession` calls.
+ */
+function hasPlayingIntent(player: PlayerCoordinator): boolean {
+  return player.getSnapshot().status === 'playing';
 }
 
 /** Adapters provided by the native shell. `createProductionServices` requires every field. */
@@ -153,6 +234,7 @@ interface BuildInputs {
 
 function buildServices(inputs: BuildInputs): Services {
   const player = new PlayerCoordinator(inputs.engine, inputs.settings, inputs.bridge);
+  wireMediaSessionBridge(player, inputs.engine);
 
   let started = false;
   let disposed = false;
@@ -260,33 +342,44 @@ export function createProductionServices(adapters: NativeAdapters): Services {
  * current reality on every dev machine. The capability matrix records this;
  * `usingMocks: true` lets the UI surface a "demo build" badge.
  *
- * On the web build the engine is real (HTMLAudioElement); only the
- * catalog + settings + secure remain in-memory. `usingMocks` reflects that
- * by going through `bridge.capabilities().native`, which is `false` until a
- * real WebView2 host installs its bridge — see `windows/host/index.html`.
+ * On the web build the engine is real (HTMLAudioElement); the catalog is
+ * also persistent when `indexedDB` is available. `usingMocks` reflects that
+ * — `bridge.capabilities().native` is `false` until a real WebView2 host
+ * installs its bridge (see `windows/host/index.html`).
  */
 export function createDemoServices(): Services {
-  const onWeb = isWebHost();
+  const onWebHost = isWebHost();
+  const onWebPlatform = isWebPlatform();
   const imported = readImportedTracks();
-  const catalog = imported
-    ? new LocalMusicRepository({ tracks: imported })
-    : new MockMusicRepository({
-        latencyMs: 160,
-        audioUrl: onWeb ? WEB_DEMO_AUDIO_URL : undefined,
-      });
-  return buildServices({
+  const catalog: MusicCatalog = onWebPlatform
+    ? // Web platform (main thread or worker): persistent IndexedDB-backed
+      // catalog. The seed comes from the host's file picker (or the
+      // `#seed-imports=N` debug query); IDB hydrates on its own if a prior
+      // session left tracks behind.
+      new IndexedDbLocalMusicRepository({ seed: imported ?? undefined })
+    : imported
+      ? // Non-web but tracks were supplied: pure in-memory, no persistence
+        // (the only such case today is RN-native Android builds).
+        new LocalMusicRepository({ tracks: imported })
+      : // Fall back to the seed catalog with simulated latency.
+        new MockMusicRepository({
+          latencyMs: 160,
+          audioUrl: onWebHost ? WEB_DEMO_AUDIO_URL : undefined,
+        });
+  const services = buildServices({
     bridge: createPlatformBridge(),
     engine: pickAudioEngine(),
     catalog,
     settings: new MemorySettings(),
     secure: new MemorySecureStorage(),
     analytics: defaultAnalytics(),
-    // Web demo with a real HTMLAudioElement + sample.mp3 is closer to a
-    // production build than a pure Fake build, but the catalog + settings
-    // are still in-memory. Reporting `usingMocks: true` keeps the UI honest
-    // about the storage layer until stage 4 ships SQLite.
+    // Web demo with persistent IDB + a real HTMLAudioElement is closer to
+    // a production build than a pure Fake build, but settings + secure
+    // are still in-memory. Reporting `usingMocks: true` keeps the UI
+    // honest about those layers.
     usingMocks: true,
   });
+  return services;
 }
 
 /**

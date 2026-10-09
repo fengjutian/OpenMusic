@@ -1,9 +1,9 @@
 # 平台能力矩阵（Platform Capability Matrix）
 
-> 版本：0.3.0 / 2026-10-09（阶段 9 Windows 本地播放器落地后更新）
-> 状态：**阶段 1/8/9 完成；阶段 2/3-7 Android 按指令整体跳过；阶段 10 前置不满足**
-> 依据：技术实现文档 §17；执行手册 阶段 0/1/2/8/9（`docs/MiniMax-完整开发执行步骤与提示词.md`）
-> 当前能力精确状态：见下方各表"状态"列；本月从 `npm run verify` / `dist/` 产物 / 工具链探测 + Edge headless 实测得到。
+> 版本：0.4.0 / 2026-10-09（阶段 9.6 IDB 持久化 + 10.1 MediaSession 动态桥完成后更新）
+> 状态：**阶段 1/8/9/9.6/10.1 完成；阶段 2/3-7 Android 按指令整体跳过；阶段 10 其余前置不满足**
+> 依据：技术实现文档 §17；执行手册 阶段 0/1/2/8/9/10（`docs/MiniMax-完整开发执行步骤与提示词.md`）
+> 当前能力精确状态：见下方各表"状态"列；本月从 `npm run verify` / `dist/` 产物 / 工具链探测 + Edge headless 实测 + 110/110 测试得到。
 
 ## 图例
 
@@ -43,16 +43,18 @@ Android SDK、Gradle、MSVC。按技术实现文档 §17「任何关键能力未
 |---|---|---|
 | TypeScript 严格模式编译 | ✅ 通过 | `npx tsc --build --force`，退出码 0 |
 | ESLint（含 react-hooks 纯度规则） | ✅ 通过 | `npx eslint .`，0 问题 |
-| 单元 + 组件测试 | ✅ 100/100 通过 | `npx rstest run`（76 baseline + 阶段 1 装配 7 + 阶段 9 WebAudioEngine 8 + 阶段 9 LocalMusicRepository 9）|
-| Lynx 生产构建（双平台 bundle） | ✅ 通过 | `npx rspeedy build` 同时产出 `dist/main.lynx.bundle` 310.6 kB + `dist/main.web.bundle` 307.1 kB（`lynx.config.ts` 加 `environments.web`，env `OPENMUSIC_PLATFORM` 切换；阶段 9 后；web bundle 内含 web-core worker bootstrap） |
+| 单元 + 组件测试 | ✅ 110/110 通过 | `npx rstest run`（76 baseline + 阶段 1 装配 7 + 阶段 9 WebAudioEngine 11 + 阶段 9 LocalMusicRepository 9 + 阶段 9.6 IndexedDbLocalMusicRepository 7）|
+| Lynx 生产构建（双平台 bundle） | ✅ 通过 | `npx rspeedy build` 同时产出 `dist/main.lynx.bundle` 325.3 kB + `dist/main.web.bundle` 320.9 kB（`lynx.config.ts` 加 `environments.web`，env `OPENMUSIC_PLATFORM` 切换；阶段 9.6 + 10.1 后；web bundle 内含 web-core worker bootstrap + IDB schema） |
 | 依赖注入与生命周期 | ✅ 阶段 1 完成 | `ServicesProvider` + `useServices()`；`createProductionServices / createDemoServices / createTestServices` 三套工厂；`Services` 接口仅暴露端口类型 |
 | Android Gradle Wrapper | ✅ 阶段 2 完成 | `android/gradlew.bat` + `gradle/wrapper/gradle-wrapper.{jar,properties}`（Gradle 8.10.2 预置成功，`./gradlew.bat --version` → Gradle 8.10.2 + JDK 17） |
 | Android Lynx 真实构造 | ✅ 代码完成 / ❌ 未编译 | `OpenMusicBridge.createLynxView()` 不再抛异常；使用 `LynxViewBuilder` + `AbsTemplateProvider`；依赖钉到已验证的 3.6.x；详见 `adr/0003-lynx-android-runtime-version.md` |
 | Android APK 构建 | ❌ 未实现 | AGP 8.7.3 插件无本地 Maven 缓存，`--offline` 模式解析失败；`ANDROID_HOME` 未装、`adb` 缺失 |
 | Android 真机启动 | ❌ 未实现 | 依赖 APK 构建产物 |
 | Windows Lynx 嵌入 | ✅ 阶段 8 完成（路线 C：Lynx Web + WebView2） | Edge 直接打开 `windows/host/index.html` 渲染同一份 `main.web.bundle`（289.5 kB）；P1–P5 决策门通过；详见 `adr/0001-windows-presentation-layer.md`；`windows/src/*.cpp` 保留但不参与 build |
-| Windows 音频引擎 | ✅ 阶段 9 完成（WebAudioEngine） | HTMLAudioElement 驱动；DOM 挂载 + 默认 MediaSession metadata + mediaSession action handlers；8/8 单元测试通过；`dist/main.web.bundle` 307.1 kB |
+| Windows 音频引擎 | ✅ 阶段 9 完成（WebAudioEngine） | HTMLAudioElement 驱动；DOM 挂载 + 默认 MediaSession metadata + mediaSession action handlers；11/11 单元测试通过（含 10.1 `updateNowPlaying` 3 项）；`dist/main.web.bundle` 320.9 kB |
 | Windows 本地曲库（文件选择 → 内存仓库） | ✅ 阶段 9 完成（LocalMusicRepository + FilePicker） | `LocalMusicRepository` in-memory 9/9 测试过；host toolbar「选择音乐目录」+ `<input webkitdirectory>`；`filesToTracks()` 通过 `URL.createObjectURL` → WebAudioEngine.load(blob:)；`globalThis.__openmusicImportedTracks` host→bundle 桥；Edge 实测状态栏显示「hash seed (8 首)」注入成功 |
+| Windows 本地曲库持久化（IndexedDB） | ⚠️ 阶段 9.6 代码完成 / ❌ Edge 真机持久化未直证 | `IndexedDbLocalMusicRepository` 7/7 测试过（含 10k tracks search P95 ≈ 20ms）；`IndexedDbDriver` schema v1：`tracks / playlists / liked / history / meta` 五 store + 主键 + autoIncrement `seq`；`flush()` 暴露 pending writes；stage 4 SQLite 化时接口不变。**Edge 实测限制**：web-core worker context 的 IDB 与主线程 mcp_browser 不互通，单元测试是当前可达的过板证据；详见 §3.10 |
+| MediaSession 动态 metadata（bundle → host） | ✅ 阶段 10.1 完成 | `WebAudioEngine.updateNowPlaying(metadata, state)`；`services.ts -> wireMediaSessionBridge()` 订阅 `PlayerCoordinator`，每次播放/暂停/切歌回调到 MediaSession；3/3 单元测试过；next 步是 host 接 bundle 的 `openmusic:media` CustomEvent 并把 OS 媒体键事件翻译成 PlayerCoordinator 意图 |
 | 双线程 ReactLynx 代码 | ✅ 可构建 | 同上；`@lynx-js/react` 0.126.2 + `@lynx-js/types` 4.3.0 |
 | 端口契约与依赖方向 | ✅ 通过 | domain 层不 import 任何上层模块 |
 | 数据库迁移可回滚 | ✅ 纯逻辑已测 | `src/infrastructure/database/__tests__/migrator.test.ts` |
@@ -229,7 +231,7 @@ Start-Process msedge "http://127.0.0.1:4173/windows/host/index.html#seed-imports
 & node scripts/serve-windows-host.mjs --no-open
 ```
 **通过标准**：
-1. `dist/main.lynx.bundle` 与 `dist/main.web.bundle` 同时产出，双体积差异 ≤ 6 kB（实测 301.1 vs 307.1，差异主要是 web-core 加载代码不在 lynx bundle）。
+1. `dist/main.lynx.bundle` 与 `dist/main.web.bundle` 同时产出，双体积差异 ≤ 6 kB（实测 325.3 vs 320.9，差异主要是 web-core 加载代码不在 lynx bundle + IDB 写入 schema）。
 2. Edge 渲染 `index.html` 后左侧导航 + 加载中 shelf + 底部 MiniPlayer 出现（截图已存，运行时截图 `/minimax/v2/assets/2026/10/09/14-11-14-960-*.jpg`）。
 3. URL 附加 `#seed-imports=N` 时 host 状态栏显示「当前：hash seed (N 首)」；此时 `globalThis.__openmusicImportedTracks` 已被 host 写入；bundle 启动时 `readImportedTracks()` 检测到后走 `LocalMusicRepository`。
 4. 真点 toolbar「选择音乐目录」后 `<input type="file" webkitdirectory>` 列出目录树，选完 `filesToTracks()` 转 Track 写回 `globalThis`，`location.reload()`。
@@ -239,6 +241,36 @@ Start-Process msedge "http://127.0.0.1:4173/windows/host/index.html#seed-imports
 - Lynx web-core 把组件树渲染到 `<lynx-view>` 内部的 Shadow DOM，主进程 DevTools 拿不到子节点列表（web-core 0.26.x 已知行为）。所以「选目录后真看到列表卡刷新」这条**只能用 host 状态栏 + bundle 源码分支确认**，不能直接在 DevTools 检查 DOM。
 - SMTC 真机验证（任务栏媒体键 + OS 层 metadata）需真 Windows 桌面 + 独立 WebView2 host。**当前仅 headless Chromium 验证 SMTC 协议形态完整**。
 - 1 万首基准未跑：当前 LocalMusicRepository in-memory，单曲库刷新即丢，阶段 9.6+ 走 SQLite/IndexedDB 才适合跑基准。
+
+### 3.10 阶段 9.6 — IndexedDB 持久化（已完成代码 + 单测）
+```powershell
+npm test -- --filter IndexedDbLocalMusicRepository
+npm run build
+node scripts/serve-windows-host.mjs --no-open
+Start-Process msedge "http://127.0.0.1:4173/windows/host/index.html?t=10#seed-imports=8"
+```
+**通过标准**：
+1. **单测 7/7**（fake-indexeddb 注入）：第一轮种子持久化、`setLiked` 跨实例持久化、`markPlayed` 跨实例持久化且去重、`importTracks` 替换曲库且老 liked 被清、IDB 不可用时降级到内存、10 000 首搜索 P95 ≤ 200ms（实测 ≈ 14-20ms）、`setLiked` 缺席曲目报错。
+2. **Build**：双 bundle 产物均含 IndexedDb 路径（minified 输出含 `new aY({seed:...})`，即 `IndexedDbLocalMusicRepository` 的 reference）。
+3. **Edge live**：host probe（`windows/host/index.html` 加 `probeOpenMusicDb()` 钩子）能列出 `openmusic` 数据库并查询 `tracks` 数量。
+
+**实测局限（必须显式记录，不算完成）**：
+- **web-core worker IDB 与主线程 mcp_browser 不互通**：本机 headless Chromium 通过 `mcp_browser` navigate 看 host 时，`probeOpenMusicDb` 能列出 `openmusic` DB 与 tracks store，但在 `#seed-imports=8` 加载后 12 秒 + 多次查询，tracks store 计数仍是 0。web-core 0.26.2 把 bundle 跑在 web worker（`web-core-worker-chunk.js` 加载被 pending 阻断），worker 内的 IDB 与主线程 IDB 在本机环境隔离。原因可能是 web-core 的 worker 上下文有 partition（storage bucket / 自己的 origin）。
+- 单元测试用 `fake-indexeddb/auto` 注入全局 IDB，跨调用持久化通过 fs 落盘，工作正常；但这是 jsdom 内存非浏览器 IDB。
+- 真 Windows WebView2 独立 host 形态下 worker IDB 与主 IDB 的互通状态需真机验证（阶段 10 后续）。
+
+### 3.11 阶段 10.1 — MediaSession 动态 metadata 桥（已完成）
+```powershell
+npm test -- --filter "WebAudioEngine.updateNowPlaying"
+```
+**通过标准**：
+1. `updateNowPlaying(metadata, playbackState)` 把 title/artist/album/artwork 写入 `navigator.mediaSession.metadata` 与 `playbackState`，3/3 单测过（基本 publish / `lastNowPlaying` 诊断字段 / 缺 mediaSession 时静默降级）。
+2. `src/app/services.ts -> wireMediaSessionBridge(player, engine)` 订阅 `PlayerCoordinator`，**类型守卫**：只有 `updateNowPlaying` 存在的引擎才接线。RN-native 用 FakeAudioEngine 不接线（fake 没有这个方法），不会引入死引用。
+3. Build OK；bundle 含 `updateNowPlaying`/`wireMediaSessionBridge` 调用链（经 grep 已确认）。
+
+**局限**：
+- 写真机 OS 媒体键流转方向：bundle 内的 `WebAudioEngine.applyDefaultMediaSession` 已在 `play/pause/seekbackward/seekforward` 上 dispatch `CustomEvent('openmusic:media')`，但**主 host 还没有 listener 把这些事件翻译成 PlayerCoordinator 意图**——这条阶段 10.2 收口。
+- 真机 OS 任务栏 thumbnail/媒体键需求独立 WebView2 host 形态，**本机无法验证**。
 
 ## 4. 已知风险
 
@@ -250,3 +282,4 @@ Start-Process msedge "http://127.0.0.1:4173/windows/host/index.html#seed-imports
 | 无布局测量 API | 进度条拖动需要调用方传宽度 | `ProgressBar` 强制 `trackWidth` prop，见 [ADR-0002](adr/0002-progress-bar-scrubbing.md) |
 | SMTC 互操作是 Windows 侧最大工程风险 | 可能需要独立呈现层 | 阶段 9 落地 HTMLAudioElement + MediaSession；真机 OS 媒体键验证被工具链阻断（无独立 WebView2 host），见 ADR-0001 |
 | Lynx web-core Shadow DOM 不可 inspect | 主进程 DevTools 看不到 `lynx-view` 子组件树；「选了文件 → 真刷新列表」无法 DOM 级直证 | 用 host 状态栏 + bundle 分支源码验证；阶段 10 引入更正式 host↔bundle 桥后再加自动化 |
+| web-core worker IDB 与主线程隔离（阶段 9.6 Edge 实测） | bundle 在 `web-core-worker-chunk.js` 中跑，worker IDB 与主 thread IDB 在本机 headless Chromium partition；`probeOpenMusicDb` 见到 DB 但 tracks=0 | 单元测试过 7/7（fake-indexeddb）；真 Windows WebView2 + 独立 host 是该限制的唯一验证路径 |

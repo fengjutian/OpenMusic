@@ -78,12 +78,18 @@ export async function openOpenMusicDb(
   const name = options.name ?? OPENMUSIC_DB_NAME;
   const version = options.version ?? OPENMUSIC_DB_VERSION;
   if (!factory) {
+    // eslint-disable-next-line no-console
+    console.warn('[openmusic] indexedDB unavailable — falling back to memory cache only.');
     return createFallbackDb('IndexedDB is not available on this host.');
   }
   try {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       const req = factory.open(name, version);
-      req.onupgradeneeded = createStores;
+      req.onupgradeneeded = (event) => {
+        // eslint-disable-next-line no-console
+        console.warn('[openmusic] IndexedDB onupgradeneeded — creating stores');
+        createStores(event);
+      };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () =>
         reject(req.error ?? new Error('openOpenMusicDb: open() failed.'));
@@ -92,6 +98,11 @@ export async function openOpenMusicDb(
     });
     return wrap(database);
   } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[openmusic] openOpenMusicDb failed:',
+      error instanceof Error ? error.message : error,
+    );
     return createFallbackDb(
       error instanceof Error ? error.message : 'openOpenMusicDb: unknown error.',
     );
@@ -128,7 +139,11 @@ function storeParameters(name: OpenMusicStore): IDBObjectStoreParameters | undef
     case 'liked':
       return { keyPath: 'trackId' };
     case 'history':
-      return { autoIncrement: true };
+      // `seq` is an auto-incremented monotonic id so `restoreHistory` can
+      // recover most-recent-first ordering across sessions. The
+      // `playedAt` millisecond timestamps often tie (4 quick taps land in
+      // the same millisecond), so we need a stable secondary tie-break.
+      return { keyPath: 'seq', autoIncrement: true };
     case 'meta':
       return { keyPath: 'key' };
   }

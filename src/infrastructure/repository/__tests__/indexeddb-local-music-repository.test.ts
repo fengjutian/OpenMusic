@@ -90,6 +90,7 @@ describe('IndexedDbLocalMusicRepository', () => {
     await repo.setLiked('tr_000', true);
     await repo.setLiked('tr_001', true);
     expect(repo.isLiked('tr_000')).toBe(true);
+    await repo.flush();
     repo.close();
 
     const reopened = new IndexedDbLocalMusicRepository({
@@ -99,6 +100,7 @@ describe('IndexedDbLocalMusicRepository', () => {
     expect(reopened.isLiked('tr_000')).toBe(true);
     expect(reopened.isLiked('tr_001')).toBe(true);
     await reopened.setLiked('tr_000', false);
+    await reopened.flush();
     reopened.close();
 
     const reopenedAgain = new IndexedDbLocalMusicRepository({
@@ -123,6 +125,7 @@ describe('IndexedDbLocalMusicRepository', () => {
     repo.markPlayed('tr_002');
     repo.markPlayed('tr_000');
     expect(repo.recent(5)).toEqual(['tr_000', 'tr_002', 'tr_001']);
+    await repo.flush();
     repo.close();
 
     const reopened = new IndexedDbLocalMusicRepository({

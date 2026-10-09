@@ -243,3 +243,143 @@ describe('WebAudioEngine DOM integration', () => {
     }
   });
 });
+
+/**
+ * Stage-10 bridge: the engine must publish `MediaSession` updates whenever
+ * the bundle's `PlayerCoordinator` notifies it of a track change.
+ */
+describe('WebAudioEngine.updateNowPlaying (stage 10)', () => {
+  function setupMediaSession() {
+    let lastMetadata: { title: string; artist: string; album: string } | null = null;
+    let lastState: string | null = null;
+    const setCalls: Array<{ title: string; artist: string; album: string; state: string }> = [];
+    class FakeMediaMetadata {
+      title: string;
+      artist: string;
+      album: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      artwork: any[] | undefined;
+      constructor(init: {
+        title: string;
+        artist: string;
+        album: string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        artwork?: any[];
+      }) {
+        this.title = init.title;
+        this.artist = init.artist;
+        this.album = init.album;
+        this.artwork = init.artwork;
+        lastMetadata = { title: init.title, artist: init.artist, album: init.album };
+        setCalls.push({
+          title: init.title,
+          artist: init.artist,
+          album: init.album,
+          state: lastState ?? 'none',
+        });
+      }
+    }
+    const fakeMediaSession = {
+      metadata: null as FakeMediaMetadata | null,
+      _playbackState: 'none' as 'none' | 'paused' | 'playing',
+      setActionHandler() {
+        /* not exercised in these tests */
+      },
+      get playbackState() {
+        return this._playbackState;
+      },
+      set playbackState(state: 'none' | 'paused' | 'playing') {
+        this._playbackState = state;
+        lastState = state;
+      },
+    };
+    const originalMediaSession = (navigator as unknown as { mediaSession?: unknown }).mediaSession;
+    const originalMediaMetadata = (globalThis as unknown as { MediaMetadata?: unknown }).MediaMetadata;
+    (navigator as unknown as { mediaSession: unknown }).mediaSession = fakeMediaSession;
+    (globalThis as unknown as { MediaMetadata: unknown }).MediaMetadata = FakeMediaMetadata;
+    return {
+      fakeMediaSession,
+      setCalls,
+      getMetadata: () => lastMetadata,
+      getState: () => lastState,
+      restore: () => {
+        (navigator as unknown as { mediaSession?: unknown }).mediaSession =
+          originalMediaSession;
+        if (originalMediaMetadata === undefined) {
+          delete (globalThis as unknown as { MediaMetadata?: unknown }).MediaMetadata;
+        } else {
+          (globalThis as unknown as { MediaMetadata: unknown }).MediaMetadata =
+            originalMediaMetadata;
+        }
+      },
+    };
+  }
+
+  it('updates navigator.mediaSession.metadata with title/artist/album/artwork', () => {
+    const { fakeMediaSession, setCalls, restore } = setupMediaSession();
+    try {
+      const engine = new WebAudioEngine({
+        tickMs: 5,
+        mount: null,
+        createElement: () => document.createElement('audio'),
+      });
+      engine.updateNowPlaying(
+        {
+          title: '晚风经过操场',
+          artist: '林听白 / 十七岁的夏天',
+          album: '本地专辑',
+          artwork: [{ src: 'asset://cover/tr_01' }],
+        },
+        'playing',
+      );
+      expect(fakeMediaSession.metadata).toBeTruthy();
+      expect(fakeMediaSession.metadata!.title).toBe('晚风经过操场');
+      expect(fakeMediaSession.metadata!.artist).toBe('林听白 / 十七岁的夏天');
+      expect(fakeMediaSession.playbackState).toBe('playing');
+      expect(setCalls.length).toBe(1);
+      expect(setCalls[0]?.title).toBe('晚风经过操场');
+      // Artwork also flows through; jsdom's fake-class assignment is enough
+      // to assert the bridge did not strip it.
+      expect(
+        (fakeMediaSession.metadata!.artwork ?? []).map((a) => a.src),
+      ).toEqual(['asset://cover/tr_01']);
+    } finally {
+      restore();
+    }
+  });
+
+  it('records every publish in `lastNowPlaying` for diagnostics + tests', () => {
+    const { restore } = setupMediaSession();
+    try {
+      const engine = new WebAudioEngine({
+        tickMs: 5,
+        mount: null,
+        createElement: () => document.createElement('audio'),
+      });
+      engine.updateNowPlaying({ title: 'A', artist: '', album: '' }, 'paused');
+      engine.updateNowPlaying({ title: 'B', artist: '', album: '' }, 'playing');
+      expect(engine.lastNowPlaying.metadata.title).toBe('B');
+      expect(engine.lastNowPlaying.playbackState).toBe('playing');
+    } finally {
+      restore();
+    }
+  });
+
+  it('no-ops gracefully when navigator.mediaSession is unavailable', () => {
+    const original = (navigator as unknown as { mediaSession?: unknown }).mediaSession;
+    delete (navigator as unknown as { mediaSession?: unknown }).mediaSession;
+    try {
+      const engine = new WebAudioEngine({
+        tickMs: 5,
+        mount: null,
+        createElement: () => document.createElement('audio'),
+      });
+      expect(() =>
+        engine.updateNowPlaying({ title: 'x', artist: '', album: '' }, 'playing'),
+      ).not.toThrow();
+      expect(engine.lastNowPlaying.metadata.title).toBe('x');
+    } finally {
+      (navigator as unknown as { mediaSession?: unknown }).mediaSession = original;
+    }
+  });
+});

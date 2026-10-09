@@ -208,6 +208,56 @@
       if (status) status.textContent = `当前：hash seed (${count} 首)`;
     }
 
+    /**
+     * Stage-9.6 hook: probe the `openmusic` IndexedDB and surface the count
+     * of persisted tracks into the toolbar status so we can verify persistence
+     * without relying on the lynx Shadow DOM (web-core keeps the ReactLynx
+     * tree in a worker, invisible to the main-thread DevTools).
+     */
+    async function probeOpenMusicDb() {
+      const status = document.getElementById('status');
+      if (!status) return;
+      const factory = window.indexedDB;
+      if (!factory) {
+        status.dataset.idbProbe = 'no-idb';
+        return;
+      }
+      try {
+        const dbs = (await factory.databases?.()) ?? [];
+        const target = dbs.find((db) => db.name === 'openmusic');
+        if (!target) {
+          status.dataset.idbProbe = 'no-db';
+          return;
+        }
+        const open = factory.open('openmusic');
+        await new Promise((resolve) => {
+          open.onsuccess = () => {
+            const db = open.result;
+            const tx = db.transaction('tracks', 'readonly');
+            const req = tx.objectStore('tracks').count();
+            req.onsuccess = () => {
+              const count = req.result;
+              status.dataset.idbProbe = `tracks=${count}`;
+              status.textContent = `IDB tracks=${count}`;
+              db.close();
+              resolve();
+            };
+            req.onerror = () => {
+              status.dataset.idbProbe = 'probe-error';
+              db.close();
+              resolve();
+            };
+          };
+          open.onerror = () => {
+            status.dataset.idbProbe = 'open-error';
+            resolve();
+          };
+        });
+      } catch (err) {
+        status.dataset.idbProbe = `probe-exception`;
+      }
+    }
+
     function mountLynx() {
       const view = document.createElement('lynx-view');
       view.id = 'app';
@@ -248,6 +298,11 @@
     renderToolbar();
     maybeSeedFromHash();
     mountLynx();
+    // Probe late so the bundle has time to finish hydration + first IDB
+    // write. Real-world first boot can take a couple of seconds even on a
+    // local server because web-core spins its worker up and the ReactLynx
+    // tree has to mount before the catalog constructor runs.
+    setTimeout(probeOpenMusicDb, 10000);
   </script>
 </head>
 <body>
