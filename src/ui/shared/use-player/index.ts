@@ -7,9 +7,16 @@
  * `import { usePlayerIntents } from '.../use-player'` keep working.
  */
 
-export { usePlayerIntents, usePlayerFull, useLikeToggle, useRestorePlayer } from './use-player/intents.js';
-export { usePlayerSnapshot, usePlayerStatus, usePlayerProgress, usePlaybackTrack, useCurrentTrackId } from './use-player/snapshots.js';
-export { ConnectedMiniPlayer } from './use-player/connected-mini-player.jsx';
-export type { PlayerIntent, PlaybackContextSource } from './use-player/intents.js';
-export type { PlayerProgress } from './use-player/snapshots.js';
-export { buildPlaybackContext } from './use-player/intents.js';
+export { usePlayerIntents, useLikeToggle, useRestorePlayer, buildPlaybackContext } from './intents.ts';
+export { usePlayerIntents as _usePlayerIntents } from './intents.ts';
+export {
+  usePlayerSnapshot,
+  usePlayerStatus,
+  usePlayerProgress,
+  usePlaybackTrack,
+  useCurrentTrackId,
+  usePlayerFull,
+} from './snapshots.ts';
+export { ConnectedMiniPlayer } from './connected-mini-player.tsx';
+export type { PlayerIntent, PlaybackContextSource } from './intents.ts';
+export type { PlayerProgress } from './snapshots.ts';

@@ -9,7 +9,7 @@ import { useAsyncResource } from '../../shared/hooks.js';
 import { Icon, Pressable, Text, TrackListSkeleton } from '../../shared/primitives.js';
 import { AsyncBoundary, EmptyState } from '../../shared/states.js';
 import { Artwork, TrackRow } from '../../shared/media.jsx';
-import { useCurrentTrackId, useLikeToggle, usePlayerIntents } from '../../shared/use-player.jsx';
+import { useCurrentTrackId, useLikeToggle, usePlayerIntents } from '../../shared/use-player';
 
 export function DetailTopBar({ title }: { title: string }) {
   const theme = useTheme();

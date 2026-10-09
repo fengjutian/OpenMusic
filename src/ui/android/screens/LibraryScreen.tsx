@@ -10,7 +10,7 @@ import { Pressable, Text, TrackListSkeleton } from '../../shared/primitives.js';
 import { Chip, SegmentedTabs } from '../../shared/inputs.js';
 import { AsyncBoundary, EmptyState } from '../../shared/states.js';
 import { Artwork, TrackRow } from '../../shared/media.jsx';
-import { useCurrentTrackId, useLikeToggle, usePlayerIntents } from '../../shared/use-player.jsx';
+import { useCurrentTrackId, useLikeToggle, usePlayerIntents } from '../../shared/use-player';
 
 type Filter = 'all' | 'playlist' | 'album' | 'artist';
 type Sort = 'recent' | 'added' | 'name';

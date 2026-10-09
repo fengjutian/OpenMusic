@@ -1,7 +1,7 @@
 import { useTheme } from '../../shared/theme.js';
 import { Icon, Pressable, Text } from '../../shared/primitives.js';
 import { QueueList } from '../../shared/playback.jsx';
-import { usePlayerFull, usePlayerIntents } from '../../shared/use-player.js';
+import { usePlayerFull, usePlayerIntents } from '../../shared/use-player';
 import { OverlayFrame } from './NowPlayingOverlay.jsx';
 
 export function QueueOverlay({ onClose }: { onClose: () => void }) {

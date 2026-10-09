@@ -10,7 +10,7 @@ import { useAsyncResource } from '../../shared/hooks.js';
 import { Icon, Pressable, Text } from '../../shared/primitives.js';
 import { AsyncBoundary, EmptyState } from '../../shared/states.js';
 import { HorizontalShelf, ShelfSkeleton } from '../../shared/media.jsx';
-import { useCurrentTrackId, usePlayerIntents } from '../../shared/use-player.jsx';
+import { useCurrentTrackId, usePlayerIntents } from '../../shared/use-player';
 
 export function HomeScreen() {
   const theme = useTheme();

@@ -12,7 +12,7 @@ import { SearchField } from '../../shared/inputs.js';
 import { EmptyState } from '../../shared/states.js';
 import { Artwork, TrackRow } from '../../shared/media.jsx';
 import { libraryActions, navigationActions } from '../../../application/stores.js';
-import { useCurrentTrackId, useLikeToggle, usePlayerIntents } from '../../shared/use-player.jsx';
+import { useCurrentTrackId, useLikeToggle, usePlayerIntents } from '../../shared/use-player';
 import type { PlaybackContext } from '../../../domain/playback.js';
 
 const HISTORY_KEY = 'search.history.v1';

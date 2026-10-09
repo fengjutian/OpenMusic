@@ -16,7 +16,7 @@ import {
 import type { BottomTabKey } from '../../application/stores.js';
 import { useLayoutMode, useTheme } from '../shared/theme.js';
 import { Icon, Pressable, Text } from '../shared/primitives.js';
-import { ConnectedMiniPlayer, useRestorePlayer } from '../shared/use-player.jsx';
+import { ConnectedMiniPlayer, useRestorePlayer } from '../shared/use-player';
 import { HomeScreen } from '../android/screens/HomeScreen.jsx';
 import { SearchScreen } from '../android/screens/SearchScreen.jsx';
 import { LibraryScreen } from '../android/screens/LibraryScreen.jsx';

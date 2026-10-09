@@ -13,7 +13,7 @@ import {
   sessionStore,
 } from '../../application/stores.js';
 import { useTheme } from '../shared/theme.js';
-import { ConnectedMiniPlayer, useRestorePlayer } from '../shared/use-player.jsx';
+import { ConnectedMiniPlayer, useRestorePlayer } from '../shared/use-player';
 import { BottomTabs } from './BottomTabs.jsx';
 import { NowPlayingOverlay } from './overlays/NowPlayingOverlay.jsx';
 import { QueueOverlay } from './overlays/QueueOverlay.jsx';

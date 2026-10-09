@@ -13,7 +13,7 @@ import {
   NowPlayingProgress,
   PlaybackControls,
 } from '../../shared/playback.jsx';
-import { usePlayerFull, usePlayerIntents } from '../../shared/use-player.js';
+import { usePlayerFull, usePlayerIntents } from '../../shared/use-player';
 import { DEFAULT_NOW_PLAYING_LAYOUT } from './now-playing-layout.js';
 import type { NowPlayingLayout } from './now-playing-layout.js';
 
