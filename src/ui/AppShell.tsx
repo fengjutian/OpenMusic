@@ -17,7 +17,14 @@ export function AppShell() {
   return (
     <view
       id={`app-shell-${PLATFORM}`}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      style={{
+        display: 'flex',
+        flex: 1,
+        width: '100%',
+        height: '100%',
+        flexDirection: 'column',
+        backgroundColor: theme.colors.background,
+      }}
     >
       {PLATFORM === 'windows' ? <WindowsShell /> : <AndroidShell />}
       <ToastHost />

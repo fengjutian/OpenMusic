@@ -22,6 +22,8 @@ export function EmptyState({ title, hint, actionLabel, onAction, compact = false
   return (
     <view
       style={{
+        display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         paddingTop: compact ? `${theme.spacing.x6}px` : `${theme.spacing.x8}px`,
@@ -73,6 +75,8 @@ export function ErrorState({ error, onRetry, compact = false }: ErrorStateProps)
   return (
     <view
       style={{
+        display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         paddingTop: compact ? `${theme.spacing.x6}px` : `${theme.spacing.x8}px`,
         paddingBottom: compact ? `${theme.spacing.x6}px` : `${theme.spacing.x8}px`,

@@ -54,6 +54,7 @@ export function MiniPlayer({
     <view
       id={id ?? 'mini-player'}
       style={{
+        display: 'flex',
         height: `${theme.layout.miniPlayerHeight}px`,
         flexDirection: 'row',
         alignItems: 'center',
@@ -69,10 +70,10 @@ export function MiniPlayer({
         accessibilityLabel={`展开全屏播放页：${track.title}`}
         onPress={onExpand}
         id="mini-player-expand"
-        style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: `${theme.spacing.x2}px` }}
+        style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flex: 1, gap: `${theme.spacing.x2}px` }}
       >
         <Artwork src={track.coverUrl} size={40} />
-        <view style={{ flex: 1 }}>
+        <view style={{ display: 'flex', flex: 1, flexDirection: 'column' }}>
           <Text variant="caption" lines={1} color={failed ? 'error' : 'primary'}>
             {track.title}
           </Text>

@@ -63,7 +63,7 @@ export function HomeScreen() {
       error={resource.state.error}
       isEmpty={resource.state.status === 'empty'}
       skeleton={() => (
-        <view style={{ paddingTop: `${theme.spacing.x4}px`, gap: `${theme.spacing.x4}px` }}>
+        <view style={{ display: 'flex', flexDirection: 'column', paddingTop: `${theme.spacing.x4}px`, gap: `${theme.spacing.x4}px` }}>
           <ShelfSkeleton />
           <ShelfSkeleton />
         </view>

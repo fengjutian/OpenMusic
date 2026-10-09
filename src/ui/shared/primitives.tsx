@@ -121,6 +121,7 @@ export function Pressable({
       aria-selected={selected}
       hit-slop={hitSlop}
       style={{
+        display: 'flex',
         opacity: inactive ? 0.45 : pressed ? 0.75 : 1,
         transitionProperty: 'opacity',
         transitionDuration: `${theme.motion.pressFeedbackMs}ms`,
@@ -160,6 +161,8 @@ export function Screen({ children, safeBottom = false, safeTop = true, style, id
       id={id}
       data-testid={id}
       style={{
+        display: 'flex',
+        flexDirection: 'column',
         flex: 1,
         backgroundColor: theme.colors.background,
         paddingTop: safeTop ? `${safeArea.top + theme.spacing.x3}px` : 0,
@@ -218,11 +221,11 @@ export function Skeleton({ width = '100%', height, radius, style }: SkeletonProp
 export function TrackListSkeleton({ rows = 5 }: { rows?: number }) {
   const theme = useTheme();
   return (
-    <view style={{ paddingLeft: `${theme.spacing.x4}px`, paddingRight: `${theme.spacing.x4}px`, gap: `${theme.spacing.x3}px` }}>
+    <view style={{ display: 'flex', flexDirection: 'column', paddingLeft: `${theme.spacing.x4}px`, paddingRight: `${theme.spacing.x4}px`, gap: `${theme.spacing.x3}px` }}>
       {Array.from({ length: rows }, (_, i) => (
-        <view key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: `${theme.spacing.x3}px` }}>
+        <view key={i} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: `${theme.spacing.x3}px` }}>
           <Skeleton width={44} height={44} radius={theme.radius.sm} />
-          <view style={{ flex: 1, gap: `${theme.spacing.x1}px` }}>
+          <view style={{ display: 'flex', flex: 1, flexDirection: 'column', gap: `${theme.spacing.x1}px` }}>
             <Skeleton width="60%" height={14} />
             <Skeleton width="35%" height={12} />
           </view>

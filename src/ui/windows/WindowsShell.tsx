@@ -70,11 +70,28 @@ export function WindowsShell() {
   }, [compact, queueVisible]);
 
   return (
-    <view style={{ flex: 1, flexDirection: 'row', backgroundColor: theme.colors.background }}>
+    <view
+      style={{
+        display: 'flex',
+        flex: 1,
+        width: '100%',
+        height: '100%',
+        flexDirection: 'row',
+        backgroundColor: theme.colors.background,
+      }}
+    >
       <Sidebar />
 
-      <view style={{ flex: 1, paddingLeft: `${safeArea.left}px` }}>
-        <view style={{ flex: 1 }}>{renderRoute(top)}</view>
+      <view
+        style={{
+          display: 'flex',
+          flex: 1,
+          minWidth: 0,
+          flexDirection: 'column',
+          paddingLeft: `${safeArea.left}px`,
+        }}
+      >
+        <view style={{ display: 'flex', flex: 1, minHeight: 0 }}>{renderRoute(top)}</view>
         <ConnectedMiniPlayer onExpand={() => navigationActions.openNowPlaying()} />
       </view>
 
@@ -94,7 +111,10 @@ function Sidebar() {
     <view
       id="windows-sidebar"
       style={{
+        display: 'flex',
         width: 200,
+        flexShrink: 0,
+        flexDirection: 'column',
         backgroundColor: theme.colors.surface,
         paddingTop: `${theme.spacing.x6}px`,
         paddingLeft: `${theme.spacing.x3}px`,
@@ -102,7 +122,7 @@ function Sidebar() {
         gap: `${theme.spacing.x1}px`,
       }}
     >
-      <view style={{ paddingLeft: `${theme.spacing.x2}px`, paddingRight: `${theme.spacing.x2}px`, paddingBottom: `${theme.spacing.x4}px` }}>
+      <view style={{ display: 'flex', flexDirection: 'column', paddingLeft: `${theme.spacing.x2}px`, paddingRight: `${theme.spacing.x2}px`, paddingBottom: `${theme.spacing.x4}px` }}>
         <Text variant="section" weight="bold">
           OpenMusic
         </Text>
@@ -121,6 +141,7 @@ function Sidebar() {
             onPress={() => navigationActions.switchTab(item.key)}
             id={`sidebar-${item.key}`}
             style={{
+              display: 'flex',
               flexDirection: 'row',
               alignItems: 'center',
               gap: `${theme.spacing.x3}px`,

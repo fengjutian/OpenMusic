@@ -121,6 +121,7 @@ export function TrackRow({
   return (
     <view
       style={{
+        display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
         paddingLeft: `${theme.spacing.x4}px`,
@@ -311,7 +312,7 @@ export function SectionHeader({ title, actionLabel, onAction, showChevron }: Sec
       </Text>
       {actionLabel && onAction ? (
         <Pressable accessibilityLabel={`${title}，查看全部`} onPress={onAction} style={{ minWidth: 44 }}>
-          <view style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+          <view style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 2 }}>
             <Text variant="caption" color="secondary">
               {actionLabel}
             </Text>
@@ -335,11 +336,11 @@ export function HorizontalShelf({ shelf, onOpenItem }: HorizontalShelfProps) {
   if (shelf.items.length === 0) return null;
 
   return (
-    <view style={{ gap: `${theme.spacing.x2}px` }}>
+    <view style={{ display: 'flex', flexDirection: 'column', gap: `${theme.spacing.x2}px` }}>
       <SectionHeader title={shelf.title} />
       <scroll-view
         scroll-orientation="horizontal"
-        style={{ flexDirection: 'row', paddingLeft: `${theme.spacing.x4}px`, paddingRight: `${theme.spacing.x4}px` }}
+        style={{ display: 'flex', flexDirection: 'row', paddingLeft: `${theme.spacing.x4}px`, paddingRight: `${theme.spacing.x4}px` }}
         scroll-bar-enable={false}
       >
         {shelf.items.map((item) => (
@@ -360,11 +361,11 @@ export function HorizontalShelf({ shelf, onOpenItem }: HorizontalShelfProps) {
 export function ShelfSkeleton() {
   const theme = useTheme();
   return (
-    <view style={{ gap: `${theme.spacing.x2}px`, paddingTop: `${theme.spacing.x2}px` }}>
+    <view style={{ display: 'flex', flexDirection: 'column', gap: `${theme.spacing.x2}px`, paddingTop: `${theme.spacing.x2}px` }}>
       <Skeleton width={120} height={20} style={{ marginLeft: `${theme.spacing.x4}px` }} />
-      <scroll-view scroll-orientation="horizontal" style={{ flexDirection: 'row' }}>
+      <scroll-view scroll-orientation="horizontal" style={{ display: 'flex', flexDirection: 'row' }}>
         {[0, 1, 2].map((i) => (
-          <view key={i} style={{ marginRight: `${theme.spacing.x3}px` }}>
+          <view key={i} style={{ display: 'flex', flexDirection: 'column', marginRight: `${theme.spacing.x3}px` }}>
             <Skeleton width={140} height={140} radius={theme.radius.sm} />
             <Skeleton width={100} height={12} style={{ marginTop: theme.spacing.x2 }} />
           </view>
