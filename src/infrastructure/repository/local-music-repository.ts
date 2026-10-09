@@ -51,11 +51,11 @@ export interface LocalMusicRepositoryOptions {
 }
 
 export class LocalMusicRepository implements MusicRepository {
-  private readonly tracks: Track[];
-  private readonly trackIndex: Map<ID, Track>;
-  private readonly playlists = new Map<ID, Playlist>();
-  private readonly liked: Set<ID>;
-  private history: ID[] = [];
+  protected tracks: Track[];
+  protected trackIndex: Map<ID, Track>;
+  protected playlists = new Map<ID, Playlist>();
+  protected liked: Set<ID>;
+  protected history: ID[] = [];
 
   constructor(options: LocalMusicRepositoryOptions) {
     if (!options.tracks) {
@@ -64,6 +64,24 @@ export class LocalMusicRepository implements MusicRepository {
     this.tracks = options.tracks.map((track) => ({ ...track }));
     this.trackIndex = new Map(this.tracks.map((track) => [track.id, track]));
     this.liked = new Set(options.initialLiked ?? []);
+  }
+
+  /**
+   * Replace the in-memory catalog contents. Used by subclasses that hydrate
+   * from a persistent store (e.g. `IndexedDbLocalMusicRepository` reading
+   * its `tracks` / `liked` rows back out of `IndexedDB` on construction).
+   * Public so the persistence layer can call it; not part of the
+   * `MusicRepository` contract.
+   */
+  loadCatalog(options: { tracks: Track[]; initialLiked?: Iterable<ID> }): void {
+    this.tracks = options.tracks.map((track) => ({ ...track }));
+    this.trackIndex = new Map(this.tracks.map((track) => [track.id, track]));
+    if (this.tracks.length === 0) {
+      // Empty stores are fine — but `trackIndex` must reflect reality.
+    }
+    this.liked = new Set(options.initialLiked ?? []);
+    this.history = [];
+    this.playlists.clear();
   }
 
   // ---------------------------------------------------------------------
