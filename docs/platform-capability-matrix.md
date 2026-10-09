@@ -43,7 +43,7 @@ Android SDK、Gradle、MSVC。按技术实现文档 §17「任何关键能力未
 |---|---|---|
 | TypeScript 严格模式编译 | ✅ 通过 | `npx tsc --build --force`，退出码 0 |
 | ESLint（含 react-hooks 纯度规则） | ✅ 通过 | `npx eslint .`，0 问题 |
-| 单元 + 组件测试 | ✅ 83/83 通过 | `npx rstest run`（含阶段 1 装配测试）|
+| 单元 + 组件测试 | ✅ 91/91 通过 | `npx rstest run`（含阶段 1 装配测试 + 阶段 9 WebAudioEngine 8 项）|
 | Lynx 生产构建 | ✅ 通过 | `npx rspeedy build` → `dist/main.lynx.bundle`，293.3 kB（阶段 1 后） |
 | 依赖注入与生命周期 | ✅ 阶段 1 完成 | `ServicesProvider` + `useServices()`；`createProductionServices / createDemoServices / createTestServices` 三套工厂；`Services` 接口仅暴露端口类型 |
 | Android Gradle Wrapper | ✅ 阶段 2 完成 | `android/gradlew.bat` + `gradle/wrapper/gradle-wrapper.{jar,properties}`（Gradle 8.10.2 预置成功，`./gradlew.bat --version` → Gradle 8.10.2 + JDK 17） |
@@ -51,6 +51,7 @@ Android SDK、Gradle、MSVC。按技术实现文档 §17「任何关键能力未
 | Android APK 构建 | ❌ 未实现 | AGP 8.7.3 插件无本地 Maven 缓存，`--offline` 模式解析失败；`ANDROID_HOME` 未装、`adb` 缺失 |
 | Android 真机启动 | ❌ 未实现 | 依赖 APK 构建产物 |
 | Windows Lynx 嵌入 | ✅ 阶段 8 完成（路线 C：Lynx Web + WebView2） | Edge 直接打开 `windows/host/index.html` 渲染同一份 `main.web.bundle`（289.5 kB）；P1–P5 决策门通过；详见 `adr/0001-windows-presentation-layer.md`；`windows/src/*.cpp` 保留但不参与 build |
+| Windows 音频引擎 | ✅ 阶段 9 完成（WebAudioEngine） | HTMLAudioElement 驱动；DOM 挂载 + 默认 MediaSession metadata + mediaSession action handlers；8/8 单元测试通过；`dist/main.web.bundle` 297.6 kB |
 | 双线程 ReactLynx 代码 | ✅ 可构建 | 同上；`@lynx-js/react` 0.126.2 + `@lynx-js/types` 4.3.0 |
 | 端口契约与依赖方向 | ✅ 通过 | domain 层不 import 任何上层模块 |
 | 数据库迁移可回滚 | ✅ 纯逻辑已测 | `src/infrastructure/database/__tests__/migrator.test.ts` |

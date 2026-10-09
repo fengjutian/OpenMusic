@@ -165,3 +165,81 @@ describe('WebAudioEngine', () => {
     expect(events).toEqual([]);
   });
 });
+
+/**
+ * Integration-style test: when the engine is mounted into a real DOM node
+ * (jsdom), it appends the `<audio>` element so the browser's MediaSession
+ * pipeline can track it. This is the contract WinMedel finds in the field
+ * — without DOM attachment, the WebView2 host sees no media keys surface.
+ */
+describe('WebAudioEngine DOM integration', () => {
+  it('appends the hidden audio element to the supplied mount', () => {
+    const mount = document.createElement('div');
+    const refs: { element: HTMLAudioElement | null } = { element: null };
+    const engine = new WebAudioEngine({
+      tickMs: 5,
+      mount,
+      createElement: () => {
+        refs.element = document.createElement('audio');
+        return refs.element;
+      },
+    });
+    void engine.load({
+      requestId: 'dom',
+      trackId: 'tr_dom',
+      url: 'sample.mp3',
+    });
+    expect(refs.element).not.toBeNull();
+    expect(refs.element!.parentNode).toBe(mount);
+    expect(refs.element!.style.display).toBe('none');
+    expect(refs.element!.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('seeds default navigator.mediaSession.metadata when available', () => {
+    // jsdom does not implement MediaMetadata / mediaSession by default; we
+    // fake just enough of the surface to assert the call path.
+    const fakeMetadata = { title: '', artist: '', album: '' };
+    class FakeMediaMetadata {
+      title: string;
+      artist: string;
+      album: string;
+      constructor(init: { title: string; artist: string; album: string }) {
+        this.title = init.title;
+        this.artist = init.artist;
+        this.album = init.album;
+        Object.assign(fakeMetadata, init);
+      }
+    }
+    const handlers: Record<string, () => void> = {};
+    const fakeMediaSession = {
+      metadata: null as FakeMediaMetadata | null,
+      setActionHandler(name: string, fn: () => void) {
+        handlers[name] = fn;
+      },
+    };
+    const nav = navigator as unknown as { mediaSession: typeof fakeMediaSession };
+    const original = nav.mediaSession;
+    (navigator as unknown as { mediaSession: unknown }).mediaSession = fakeMediaSession;
+    (globalThis as unknown as { MediaMetadata: typeof FakeMediaMetadata }).MediaMetadata = FakeMediaMetadata;
+
+    try {
+      const mount = document.createElement('div');
+      const engine = new WebAudioEngine({
+        tickMs: 5,
+        mount,
+        createElement: () => document.createElement('audio'),
+      });
+      void engine.load({
+        requestId: 'smtc',
+        trackId: 'tr_smtc',
+        url: 'sample.mp3',
+      });
+      expect(fakeMediaSession.metadata).toBeTruthy();
+      expect(fakeMediaSession.metadata!.title).toBe('OpenMusic');
+      expect(typeof handlers['play']).toBe('function');
+      expect(typeof handlers['pause']).toBe('function');
+    } finally {
+      (navigator as unknown as { mediaSession: unknown }).mediaSession = original;
+    }
+  });
+});

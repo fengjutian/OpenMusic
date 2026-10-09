@@ -60,9 +60,14 @@ export class WebAudioEngine implements AudioEnginePort {
 
   constructor(options: WebAudioEngineOptions = {}) {
     this.tickMs = options.tickMs ?? 250;
+    // `?? document.body` would replace an explicit `null` (used by tests)
+    // with the real body; guard with `undefined` so `null` is honoured.
     this.mount =
-      options.mount ??
-      (typeof document !== 'undefined' ? document.body : null);
+      options.mount === undefined
+        ? typeof document !== 'undefined'
+          ? document.body
+          : null
+        : options.mount;
     this.createElement =
       options.createElement ??
       (() => {
