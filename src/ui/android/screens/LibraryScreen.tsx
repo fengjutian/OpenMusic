@@ -1,6 +1,6 @@
 import { useCallback, useState } from '@lynx-js/react';
 
-import { getServices } from '../../../app/services.js';
+import { useServices } from '../../../app/services-context.js';
 import { libraryActions, navigationActions } from '../../../application/stores.js';
 import type { LibraryPayload, Track } from '../../../domain/models.js';
 import type { PlaybackContext } from '../../../domain/playback.js';
@@ -17,7 +17,7 @@ type Sort = 'recent' | 'added' | 'name';
 
 export function LibraryScreen() {
   const theme = useTheme();
-  const services = getServices();
+  const services = useServices();
   const intents = usePlayerIntents();
   const currentTrackId = useCurrentTrackId();
   const likeToggle = useLikeToggle();
@@ -92,7 +92,9 @@ export function LibraryScreen() {
             title="音乐库还没有内容"
             hint="扫描本地音乐文件夹，或先去发现页听点什么"
             actionLabel="去扫描音乐"
-            onAction={() => sessionScanHint()}
+            onAction={() =>
+              services.analytics.track('content_click', { content_type: 'scan_unavailable' })
+            }
           />
         )}
         onRetry={resource.reload}
@@ -257,10 +259,9 @@ function EntityRow({
 }
 
 /**
- * Scan entry point. The native scanner is not wired up yet, so this reports the
- * limitation instead of offering a button that silently does nothing
- * (product spec §13: no dead controls).
+ * Scan entry point. The native scanner is not wired up yet, so the empty
+ * state reports the limitation instead of offering a button that silently
+ * does nothing (product spec §13: no dead controls). The analytics call is
+ * inlined at the action site because `useServices()` is a hook and cannot
+ * be called from a module-level helper.
  */
-function sessionScanHint(): void {
-  getServices().analytics.track('content_click', { content_type: 'scan_unavailable' });
-}

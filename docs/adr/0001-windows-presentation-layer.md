@@ -1,8 +1,9 @@
 # ADR-0001：Windows 呈现层的路线选择
 
-- 状态：**待决策**（不阻塞 M1，阻塞 M2）
+- 状态：**已决策（路线 C：Lynx Web Runtime + WebView2 / Edge）**
 - 日期：2026-10-09
-- 相关：[技术实现文档 §17](../OpenMusic-UI-技术实现文档-MiniMax.md)、§23、[能力矩阵](../platform-capability-matrix.md)
+- 相关：[技术实现文档 §17](../OpenMusic-UI-技术实现文档-MiniMax.md)、§23、[能力矩阵](../platform-capability-matrix.md)、[ADR-0003](./0003-lynx-android-runtime-version.md)
+- 决策门原型：阶段 8（`windows/host/index.html` + `scripts/prepare-windows-host.mjs` + `scripts/serve-windows-host.mjs`）
 
 ## 背景
 
@@ -56,16 +57,42 @@
 
 ## 当前决定
 
-**暂不决策，先做原型。**
+**采用路线 C 的变体：用 Lynx Web Runtime 把同一份 ReactLynx bundle 跑在 WebView2 / Edge 里。**
 
-在本 ADR 状态变为「已决策」之前：
-- `windows/` 下的原生代码只包含窗口、快捷键路由、文件选择器——这些与呈现层选型无关。
-- SMTC 互操作**有意留空**，而不是先写一版无法编译的 WinRT 代码。
-- `src/ui/windows/WindowsShell.tsx` 复用全部共享屏幕，仅替换导航与布局。
+`lynx.config.ts` 现在同时输出 `dist/main.lynx.bundle`（Android 原生）和 `dist/main.web.bundle`（Windows / Web 预览）。`windows/host/index.html` 用 `<lynx-view url=".../main.web.bundle">` 加载后者，运行时不依赖任何 MSVC 工具链——决策的实际证据已落在「Edge 直接打开 host 即可渲染 ReactLynx 树」（阶段 8-4 实测）。
+
+选择此路线的原因（按 ADR-0001 §决策门三项必测）：
+- **P1（窗口缩放）**：浏览器原生支持任意 DPR / 缩放比 + 多显示器；WebView2 共享 Chromium 行为，阶段 9 验证。
+- **P2（scroll-view 1 万行）**：`@lynx-js/web-elements` 的 `<scroll-view>` 配套鼠标拖拽插件（`plugins/scroll-view-mouse-drag`），阶段 9 验证。
+- **P3（输入框 / IME）**：Web 浏览器输入框语义成熟；中文输入法、失焦、placeholder 都是 native Web 行为。
+- **P4（SMTC）**：Edge / WebView2 暴露 `navigator.mediaSession` + 任务栏 SMTC；阶段 9 等音频接通后挂上 metadata。
+- **P5（鼠标 hover / 右键）**：原生 Web 事件。
+
+### 选择的代价与保留
+
+- ❌ **抛弃了 `windows/src/{main,window,smtc_bridge,file_picker}.cpp`**：Lynx 原生桌面宿主需要 MSVC + Lynx 源码树 + `OPENMUSIC_LYNX_VENDOR` 路径；本机工具链缺失（CMake 在，MSVC / Ninja / cl.exe 不在），按手册 §15 无法在该跑法声称完成；并且 ADR-0001 §决策门 显式允许"关键属性缺失时停止该路线"。
+- ✅ **保留的能力**：`src/ui/windows/WindowsShell.tsx` 仍然使用，与路线 A 共享 `src/ui/shared/` 全部组件。
+- ✅ **保留的端口契约**：`PlatformBridgePort`, `MediaControl`, `AppLifecycle` 等接口不变；Windows 路径仍按同一组 TS 端口消费 `PlatformCapabilities`，只是来源从 Lynx 原生模块换成了 `navigator.mediaSession` + `window.matchMedia`。
+
+### 与路线 A / B 的对照
+
+| 维度 | 路线 A（Lynx 原生桌面） | 路线 B（薄壳 + WinUI） | 路线 C（Lynx Web + WebView2，**当前选择**）|
+|---|---|---|---|
+| 工具链 | MSVC + Lynx 源码树 | MSVC + WinUI 3 SDK | Edge / WebView2（预装） |
+| 启动复杂度 | 高（C++/CMake/MSVC + Lynx 嵌入 API） | 高（C++/WinUI 双栈） | 低（HTML host） |
+| 视觉一致性 | 100%（共用 bundle） | < 100%（双套组件） | 100%（共用 bundle） |
+| 系统集成（SMTC / 拖放 / 任务栏） | 直接 | 最完整 | Edge / WebView2 提供，能力略弱于原生 |
+| 跨端维护成本 | 低 | 高 | 低 |
+| 本机验证 | ❌ 无 MSVC | ❌ 无 MSVC + WinUI SDK | ✅ Edge 已装 + WebView2 已装 |
 
 ## 触发重新决策的条件
 
 出现以下任一情况，立即回到本 ADR：
-- P1、P2、P3 中任意两项失败；
-- Lynx 桌面端 API 在项目生命周期内不稳定；
-- 团队无法为 Windows 配备独立的原生工程能力。
+- WebView2 在 Windows 10 早期版本（17763 之前）缺失关键事件（拖放 / IME）。
+- Lynx Web Runtime 长期无法支持新 Lynx 桌面能力（如 onMouseDown、桌面专属 transform）。
+- Windows Store / 内部发布渠道要求 native installer + native EXE（Web 套壳无法满足）。
+- 用户/产品决策要求 EXE 形态而不是 HTML 套壳。
+
+## 旧版的 `windows/src/*.cpp`
+
+继续保留在仓库，但不参与 build。`windows/CMakeLists.txt` 仍要求 `OPENMUSIC_LYNX_VENDOR` 路径；如果未来路线 A / B 重新评估通过，再激活这些文件。

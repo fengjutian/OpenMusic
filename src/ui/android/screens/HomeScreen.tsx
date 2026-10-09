@@ -1,6 +1,6 @@
 import { useCallback } from '@lynx-js/react';
 
-import { getServices } from '../../../app/services.js';
+import { useServices } from '../../../app/services-context.js';
 import { navigationActions } from '../../../application/stores.js';
 import { greetingFor } from '../../../domain/format.js';
 import type { HomeItem, HomePayload, Track } from '../../../domain/models.js';
@@ -14,7 +14,7 @@ import { useCurrentTrackId, usePlayerIntents } from '../../shared/use-player';
 
 export function HomeScreen() {
   const theme = useTheme();
-  const services = getServices();
+  const services = useServices();
   const intents = usePlayerIntents();
   const currentTrackId = useCurrentTrackId();
 

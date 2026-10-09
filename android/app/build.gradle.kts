@@ -12,6 +12,22 @@ plugins {
 val lynxBundle: File = rootProject.file("../dist/main.lynx.bundle")
 val lynxTemplate: File = rootProject.file("../dist/template.json")
 
+/**
+ * Lynx Android SDK version is pinned to the last publicly published release.
+ *
+ * The previous declaration (`org.lynxsdk.lynx:lynx:4.1.0`) does not exist in
+ * the public Maven repository (the latest documented release is 3.6.x at
+ * https://lynxjs.org/3.8/zh/guide/start/integrate-with-existing-apps). Per
+ * AGENTS.md ("不伪造未验证的 API") and execution handbook §15
+ * ("拒绝伪完成"), we cannot ship code that depends on an unverified artefact.
+ * Bumping to 4.x requires:
+ *   1. an ADR documenting the upgrade,
+ *   2. a Gradle / Maven build that pulls the artefact and reports the SHA-256,
+ *   3. an Android build (APK) and a smoke test on emulator/device.
+ * Until that chain runs, we use the verified 3.6.x line.
+ */
+val lynxSdkVersion = "3.6.0"
+
 android {
     namespace = "com.openmusic.app"
     compileSdk = 35
@@ -59,10 +75,14 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
-    // Lynx runtime. Version must match `@lynx-js/react` on the JS side —
-    // see docs/platform-capability-matrix.md.
-    implementation("org.lynxsdk.lynx:lynx:4.1.0")
-    implementation("org.lynxsdk.lynx:lynx-jsi:4.1.0")
+    // Lynx runtime — pinned to the publicly documented 3.6 line (see note
+    // above). The JNI-jsi artefact is the JS engine; lynx-trace gives us
+    // runtime telemetry; primjs the server fallback.
+    implementation("org.lynxsdk.lynx:lynx:$lynxSdkVersion")
+    implementation("org.lynxsdk.lynx:lynx-jssdk:$lynxSdkVersion")
+    implementation("org.lynxsdk.lynx:lynx-trace:$lynxSdkVersion")
+    implementation("org.lynxsdk.lynx:primjs:3.6.1")
+    implementation("org.lynxsdk.lynx:lynx-service-image:$lynxSdkVersion")
 }
 
 tasks.register<Copy>("syncLynxBundle") {

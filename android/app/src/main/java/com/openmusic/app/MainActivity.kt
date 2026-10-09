@@ -2,6 +2,7 @@ package com.openmusic.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.openmusic.app.bridge.OpenMusicBridge
@@ -12,6 +13,8 @@ import com.openmusic.app.bridge.WinInsets
  *
  * The JS side reaches native capabilities through `globalThis.openmusicAndroid`
  * (declared in `src/platform/bridge.ts`), never through direct module imports.
+ * `LynxEnvSetup.install` ran in `OpenMusicApplication.onCreate`, so the bridge
+ * is already available when this activity starts.
  */
 class MainActivity : ComponentActivity() {
 
@@ -21,12 +24,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        bridge = OpenMusicBridge(this)
+        bridge = LynxEnvSetup.get()
+            ?: throw IllegalStateException(
+                "LynxEnvSetup not initialised — check OpenMusicApplication registration in AndroidManifest.xml.",
+            )
 
-        // The Lynx view is created by the Lynx runtime; the exact builder API
-        // must be checked against the pinned org.lynxsdk.lynx:lynx artifact.
-        // See android/README.md — this file is NOT compile-verified yet.
-        setContentView(bridge.createLynxView())
+        val view = bridge.createLynxView()
+        setContentView(view)
+
+        ViewCompat.setOnApplyWindowInsetsListener(view) { _, insetsCompat ->
+            val platformInsets = insetsCompat.toWindowInsets()
+            if (platformInsets != null) {
+                bridge.updateInsets(platformInsets)
+            }
+            insetsCompat
+        }
     }
 
     override fun onStart() {
@@ -45,10 +57,4 @@ class MainActivity : ComponentActivity() {
     }
 
     fun currentInsets(): WinInsets = bridge.currentInsets()
-
-    fun applySystemBarColors() {
-        WindowInsetsCompat
-            .toWindowInsetsCompat(window.decorView.rootWindowInsets)
-            .let { /* insets are surfaced through the bridge, not here */ }
-    }
 }

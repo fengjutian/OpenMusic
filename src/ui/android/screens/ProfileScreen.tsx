@@ -1,6 +1,6 @@
 import { useCallback } from '@lynx-js/react';
 
-import { getServices } from '../../../app/services.js';
+import { useServices } from '../../../app/services-context.js';
 import { sessionActions, sessionStore } from '../../../application/stores.js';
 import type { ThemePreference } from '../../../domain/models.js';
 import { useStoreSlice } from '../../../application/store-hooks.js';
@@ -12,7 +12,7 @@ const APP_VERSION = '0.1.0';
 
 export function ProfileScreen() {
   const theme = useTheme();
-  const services = getServices();
+  const services = useServices();
   const resolvedTheme = useStoreSlice(sessionStore, 'resolvedTheme');
   const capabilities = services.bridge.capabilities();
 

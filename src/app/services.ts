@@ -1,103 +1,241 @@
 /**
- * Dependency graph root.
+ * Composition root.
  *
- * `createServices(opts)` is the single composition point. Pages and tests
- * call this to obtain a fully wired `Services` bag; the legacy `getServices()`
- * module-level singleton is kept for one release so call sites can migrate
- * incrementally — see the review note "服务装配隐式串联".
+ * Three factories, one shape. Callers pick the one that matches the boot
+ * context:
+ *   - `createProductionServices(adapters)`  // real native shell answered
+ *   - `createDemoServices()`                // explicit dev/demo flag
+ *   - `createTestServices(overrides)`       // unit/component tests
  *
- * Wiring order matters and is the reason this file exists:
- *   theme -> platform adapter -> repository/engine implementations -> app services
- * A page must never construct an implementation itself.
+ * Rules (technical spec §11/§16, execution handbook §一阶段 1):
+ *   - Domain does not import this file. UI and tests do.
+ *   - The returned `Services` exposes only port interfaces, never concrete
+ *     infrastructure classes (so swapping in the SQLite-backed catalog or the
+ *     platform keystore does not change call sites).
+ *   - Side effects are owned by `Services.start()` and `Services.dispose()`.
+ *     Neither factory calls `start()` automatically — the React tree owns
+ *     the lifecycle via `ServicesProvider`.
  */
 
-import { FakeAudioEngine } from '../infrastructure/audio/fake-audio-engine.js';
-import { MemorySecureStorage, MemorySettings } from '../infrastructure/settings/memory-settings.js';
-import { MockMusicRepository } from '../infrastructure/repository/mock-music-repository.js';
-import type { MusicRepository } from '../domain/ports.js';
 import { PlayerCoordinator } from '../application/player-coordinator.js';
+import { libraryStore } from '../application/stores.js';
+import type {
+  AnalyticsPort,
+  AudioEnginePort,
+  MusicCatalog,
+  MusicRepository,
+  PlatformBridgePort,
+  SecureStoragePort,
+  SettingsPort,
+} from '../domain/ports.js';
+import { FakeAudioEngine } from '../infrastructure/audio/fake-audio-engine.js';
+import { MockMusicRepository } from '../infrastructure/repository/mock-music-repository.js';
+import {
+  MemorySecureStorage,
+  MemorySettings,
+} from '../infrastructure/settings/memory-settings.js';
 import {
   ConsoleAnalytics,
   PrivacyFilteringAnalytics,
   createPlatformBridge,
 } from '../platform/bridge.js';
-import type { AnalyticsPort, PlatformBridgePort } from '../domain/ports.js';
-import { libraryStore } from '../application/stores.js';
 
+/**
+ * Public shape returned by every factory. Exposes port interfaces only —
+ * no concrete `MemorySettings`, no `MockMusicRepository`. The deprecated
+ * `repository` field still exists during the screen migration; new code must
+ * depend on `catalog` (the narrow port).
+ */
 export interface Services {
-  /** @deprecated prefer `catalog`; kept until #5 split lands in screens. */
-  repository: MusicRepository;
-  catalog: MusicRepository;
-  settings: MemorySettings;
-  player: PlayerCoordinator;
+  /** @deprecated use `catalog`; will be removed when every screen migrates. */
+  readonly repository: MusicRepository;
+  readonly catalog: MusicCatalog;
+  readonly settings: SettingsPort;
+  readonly secure: SecureStoragePort;
+  readonly player: PlayerCoordinator;
+  readonly bridge: PlatformBridgePort;
+  readonly analytics: AnalyticsPort;
+  /** True when the underlying implementations are not real native modules. */
+  readonly usingMocks: boolean;
+
+  /** Idempotent: subsequent calls are no-ops. Called by `ServicesProvider`. */
+  start(): void;
+  /** Idempotent: tears down subscriptions and disposes the engine. */
+  dispose(): void;
+}
+
+/** Adapters provided by the native shell. `createProductionServices` requires every field. */
+export interface NativeAdapters {
   bridge: PlatformBridgePort;
+  engine: AudioEnginePort;
+  catalog: MusicCatalog;
+  settings: SettingsPort;
+  secure: SecureStoragePort;
+}
+
+/** Per-field overrides accepted by `createTestServices`. Any omitted field gets the demo impl. */
+export interface TestOverrides {
+  bridge?: PlatformBridgePort;
+  engine?: AudioEnginePort;
+  catalog?: MusicCatalog;
+  settings?: SettingsPort;
+  secure?: SecureStoragePort;
+  analytics?: AnalyticsPort;
+}
+
+// ---------------------------------------------------------------------------
+// Shared builder — the three factories differ only in which inputs they
+// resolve; everything downstream (player wiring + lifecycle) is identical.
+// ---------------------------------------------------------------------------
+
+interface BuildInputs {
+  bridge: PlatformBridgePort;
+  engine: AudioEnginePort;
+  catalog: MusicCatalog;
+  settings: SettingsPort;
+  secure: SecureStoragePort;
   analytics: AnalyticsPort;
-  /** True when no native shell answered — the app runs on fakes. */
+  /** Whether the inputs come from mocks; surfaced via `Services.usingMocks`. */
   usingMocks: boolean;
 }
 
-export interface CreateServicesOptions {
-  /** Provide a custom bridge in tests. The default reads from the real global. */
-  bridge?: PlatformBridgePort;
-  /** Override the analytics sink. Defaults to `ConsoleAnalytics`. */
-  analyticsSink?: AnalyticsPort;
-  /** Override the catalog. Defaults to the in-memory mock. */
-  catalog?: MusicRepository;
+function buildServices(inputs: BuildInputs): Services {
+  const player = new PlayerCoordinator(inputs.engine, inputs.settings, inputs.bridge);
+
+  let started = false;
+  let disposed = false;
+
+  const services: Services = {
+    repository: combineRepository(inputs.catalog),
+    catalog: inputs.catalog,
+    settings: inputs.settings,
+    secure: inputs.secure,
+    player,
+    bridge: inputs.bridge,
+    analytics: inputs.analytics,
+    usingMocks: inputs.usingMocks,
+    start() {
+      if (started || disposed) return;
+      player.start();
+      started = true;
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      started = false;
+      void player.dispose();
+    },
+  };
+  return services;
 }
 
 /**
- * Build a fresh `Services` instance.
- *
- * Two important contracts:
- *  - side effects (media-button subscription, app-state subscription) are
- *    registered here, not in `App.tsx`. There is exactly one site that
- *    wires platform events, so re-renders cannot double-subscribe.
- *  - the returned `player` is already started. Callers do not need to
- *    invoke `start()` themselves.
+ * `MusicRepository` is the legacy combined port. Mock already implements the
+ * three narrow ports. For real adapters we synthesize a thin facade so legacy
+ * call sites keep working during the migration.
  */
-export function createServices(opts: CreateServicesOptions = {}): Services {
-  const bridge = opts.bridge ?? createPlatformBridge();
-  const settings = new MemorySettings();
-  const catalog = opts.catalog ?? new MockMusicRepository({ latencyMs: 160 });
-  const analytics = new PrivacyFilteringAnalytics(
-    opts.analyticsSink ?? new ConsoleAnalytics(),
-    `s_${Math.floor(Date.now() / 1000)}`,
-  );
-
-  // Native engine selection lives here; the fake is the only implementation
-  // wired up until android/windows hosts land. Swap in `NativeAudioEngine`
-  // behind the same `AudioEnginePort` — no UI change required.
-  const player = new PlayerCoordinator(new FakeAudioEngine(), settings, bridge);
-  player.start();
-
+function combineRepository(catalog: MusicCatalog): MusicRepository {
+  const favorites = catalog as Partial<MusicRepository>;
+  if (
+    typeof favorites.setLiked === 'function' &&
+    typeof favorites.isLiked === 'function' &&
+    typeof favorites.markPlayed === 'function' &&
+    typeof favorites.recent === 'function'
+  ) {
+    return catalog as MusicRepository;
+  }
   return {
-    repository: catalog,
-    catalog,
-    settings,
-    player,
-    bridge,
-    analytics,
-    usingMocks: !bridge.capabilities().native,
+    ...catalog,
+    setLiked: async () => {
+      throw new Error('FavoritesPort not implemented by current catalog');
+    },
+    isLiked: () => false,
+    markPlayed: () => {
+      /* no-op for read-only catalog */
+    },
+    recent: () => [],
   };
 }
 
-let cached: Services | null = null;
+function defaultAnalytics(): AnalyticsPort {
+  return new PrivacyFilteringAnalytics(
+    new ConsoleAnalytics(),
+    `s_${Math.floor(Date.now() / 1000)}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Public factories
+// ---------------------------------------------------------------------------
 
 /**
- * Lazy default singleton, kept for the call sites that have not yet been
- * migrated. After a sweep, this can be replaced by an app-level provider
- * that calls `createServices` once.
+ * Production wiring. The native shell must answer every port.
+ *
+ * Throws if any adapter is missing — there is no silent fallback to mocks.
+ * The handbook rejects "代码已经写好，但本机没有 SDK" as completion evidence;
+ * the same rule applies here: missing adapters mean the app is not bootable
+ * and the caller must surface the error.
  */
-export function getServices(): Services {
-  if (cached) return cached;
-  cached = createServices();
-  return cached;
+export function createProductionServices(adapters: NativeAdapters): Services {
+  const required: Array<keyof NativeAdapters> = [
+    'bridge',
+    'engine',
+    'catalog',
+    'settings',
+    'secure',
+  ];
+  for (const key of required) {
+    if (!adapters[key]) {
+      throw new Error(
+        `createProductionServices: missing adapter "${String(key)}". ` +
+          `Production boot requires every native adapter.`,
+      );
+    }
+  }
+  return buildServices({
+    bridge: adapters.bridge,
+    engine: adapters.engine,
+    catalog: adapters.catalog,
+    settings: adapters.settings,
+    secure: adapters.secure,
+    analytics: defaultAnalytics(),
+    usingMocks: false,
+  });
 }
 
-/** Test seam. */
-export function resetServices(): void {
-  cached?.player.dispose();
-  cached = null;
+/**
+ * Demo wiring. Used only when the app boots without a native shell — the
+ * current reality on every dev machine. The capability matrix records this;
+ * `usingMocks: true` lets the UI surface a "demo build" badge.
+ */
+export function createDemoServices(): Services {
+  return buildServices({
+    bridge: createPlatformBridge(),
+    engine: new FakeAudioEngine(),
+    catalog: new MockMusicRepository({ latencyMs: 160 }),
+    settings: new MemorySettings(),
+    secure: new MemorySecureStorage(),
+    analytics: defaultAnalytics(),
+    usingMocks: true,
+  });
 }
 
-export { MemorySecureStorage, libraryStore };
+/**
+ * Test wiring. Defaults to the same mock impls as `createDemoServices`, but
+ * any port can be swapped for a stub. Used by component tests that need to
+ * observe player events or short-circuit I/O.
+ */
+export function createTestServices(overrides: TestOverrides = {}): Services {
+  return buildServices({
+    bridge: overrides.bridge ?? createPlatformBridge(),
+    engine: overrides.engine ?? new FakeAudioEngine({ tickMs: 5, loadDelayMs: 0 }),
+    catalog: overrides.catalog ?? new MockMusicRepository({ latencyMs: 0 }),
+    settings: overrides.settings ?? new MemorySettings(),
+    secure: overrides.secure ?? new MemorySecureStorage(),
+    analytics: overrides.analytics ?? defaultAnalytics(),
+    usingMocks: !overrides.engine && !overrides.catalog,
+  });
+}
+
+/** Library store is owned by application; re-exported for tests that bootstrap it. */
+export { libraryStore };

@@ -7,7 +7,7 @@
 
 import { useCallback, useMemo } from '@lynx-js/react';
 
-import { getServices } from '../../../app/services.js';
+import { useServices } from '../../../app/services-context.js';
 import { libraryActions } from '../../../application/stores.js';
 import { tracedIntent } from '../../../application/traced-intent.js';
 import type { PlaybackContext } from '../../../domain/playback.js';
@@ -55,7 +55,7 @@ export function buildPlaybackContext(source: PlaybackContextSource): PlaybackCon
 }
 
 export function usePlayerIntents(): PlayerIntent {
-  const services = getServices();
+  const services = useServices();
 
   const playTrackList = useCallback(
     async (source: PlaybackContextSource, tracks: Track[], startIndex: number) => {
@@ -105,7 +105,7 @@ export function usePlayerIntents(): PlayerIntent {
  * together.
  */
 export function useLikeToggle() {
-  const services = getServices();
+  const services = useServices();
 
   return useCallback(
     async (track: Track) => {
@@ -130,7 +130,7 @@ export function useLikeToggle() {
 
 /** Restores the previous queue on launch. Never auto-plays with sound (§10.4). */
 export function useRestorePlayer() {
-  const services = getServices();
+  const services = useServices();
 
   useEffect(() => {
     let cancelled = false;

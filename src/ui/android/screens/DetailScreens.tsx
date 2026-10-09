@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from '@lynx-js/react';
 
-import { getServices } from '../../../app/services.js';
+import { useServices } from '../../../app/services-context.js';
 import { libraryActions, navigationActions } from '../../../application/stores.js';
 import type { ArtistDetail, Playlist, Track } from '../../../domain/models.js';
 import type { PlaybackContext } from '../../../domain/playback.js';
@@ -103,7 +103,7 @@ function DetailHeader({
 
 export function PlaylistScreen({ id }: { id: string }) {
   const theme = useTheme();
-  const services = getServices();
+  const services = useServices();
   const intents = usePlayerIntents();
   const currentTrackId = useCurrentTrackId();
   const likeToggle = useLikeToggle();
@@ -182,7 +182,7 @@ export function PlaylistScreen({ id }: { id: string }) {
 
 export function AlbumScreen({ id }: { id: string }) {
   const theme = useTheme();
-  const services = getServices();
+  const services = useServices();
   const intents = usePlayerIntents();
   const currentTrackId = useCurrentTrackId();
   const likeToggle = useLikeToggle();
@@ -242,7 +242,7 @@ export function AlbumScreen({ id }: { id: string }) {
 
 export function ArtistScreen({ id }: { id: string }) {
   const theme = useTheme();
-  const services = getServices();
+  const services = useServices();
   const intents = usePlayerIntents();
   const currentTrackId = useCurrentTrackId();
   const [expanded, setExpanded] = useState(false);

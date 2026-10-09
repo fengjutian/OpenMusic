@@ -5,7 +5,7 @@
  * re-renders the 60px strip, never the page behind it.
  */
 
-import { getServices } from '../../../app/services.js';
+import { useServices } from '../../../app/services-context.js';
 import { MiniPlayer } from '../playback.jsx';
 import { usePlayerIntents } from './intents.js';
 import {
@@ -15,7 +15,7 @@ import {
 } from './snapshots.js';
 
 export function ConnectedMiniPlayer({ onExpand }: { onExpand: () => void }) {
-  const services = getServices();
+  const services = useServices();
   const status = usePlayerStatus();
   const progress = usePlayerProgress();
   const track = usePlaybackTrack();

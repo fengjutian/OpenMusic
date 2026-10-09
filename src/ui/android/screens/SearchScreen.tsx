@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from '@lynx-js/react';
 import type { ReactNode } from '@lynx-js/react';
 
-import { getServices } from '../../../app/services.js';
+import { useServices } from '../../../app/services-context.js';
 import type { AppError } from '../../../domain/errors.js';
 import type { SearchPayload } from '../../../domain/models.js';
 import { SEARCH_DEBOUNCE_MS } from '../../../domain/search.js';
@@ -30,7 +30,7 @@ const EMPTY_PAYLOAD: SearchPayload = {
 
 export function SearchScreen() {
   const theme = useTheme();
-  const services = getServices();
+  const services = useServices();
   const intents = usePlayerIntents();
   const currentTrackId = useCurrentTrackId();
   const likeToggle = useLikeToggle();
@@ -256,7 +256,7 @@ function SearchResults({
   onOpenArtist: (id: string) => void;
 }) {
   const theme = useTheme();
-  const services = getServices();
+  const services = useServices();
 
   return (
     <scroll-view style={{ flex: 1 }} scroll-bar-enable={false}>

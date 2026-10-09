@@ -20,7 +20,8 @@
     "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
-    "@lynx-js/react": "^0.126.2"
+    "@lynx-js/react": "^0.126.2",
+    "remote-web-worker": "^0.0.9"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

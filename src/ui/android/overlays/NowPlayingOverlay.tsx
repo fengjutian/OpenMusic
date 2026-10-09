@@ -1,7 +1,7 @@
 import { useEffect, useState } from '@lynx-js/react';
 import type { ReactNode } from '@lynx-js/react';
 
-import { getServices } from '../../../app/services.js';
+import { useServices } from '../../../app/services-context.js';
 import { formatArtists } from '../../../domain/format.js';
 import type { LyricLine } from '../../../domain/models.js';
 import { useTheme } from '../../shared/theme.js';
@@ -35,7 +35,7 @@ export function NowPlayingOverlay({
   layout?: NowPlayingLayout;
 }) {
   const theme = useTheme();
-  const services = getServices();
+  const services = useServices();
   const player = usePlayerFull();
   const intents = usePlayerIntents();
   const [pane, setPane] = useState<Pane>('artwork');
@@ -159,7 +159,7 @@ function LyricsPane({
   positionMs: number;
   layout: NowPlayingLayout;
 }) {
-  const services = getServices();
+  const services = useServices();
   const resource = useAsyncResource<LyricLine[]>(
     (signal) => services.repository.getLyrics(trackId, { signal }),
     [trackId],
