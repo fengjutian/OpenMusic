@@ -257,14 +257,12 @@ describe('WebAudioEngine.updateNowPlaying (stage 10)', () => {
       title: string;
       artist: string;
       album: string;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      artwork: any[] | undefined;
+      artwork: unknown[] | undefined;
       constructor(init: {
         title: string;
         artist: string;
         album: string;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        artwork?: any[];
+        artwork?: unknown[];
       }) {
         this.title = init.title;
         this.artist = init.artist;

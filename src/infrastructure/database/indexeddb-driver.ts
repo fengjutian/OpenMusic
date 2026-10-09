@@ -78,7 +78,6 @@ export async function openOpenMusicDb(
   const name = options.name ?? OPENMUSIC_DB_NAME;
   const version = options.version ?? OPENMUSIC_DB_VERSION;
   if (!factory) {
-    // eslint-disable-next-line no-console
     console.warn('[openmusic] indexedDB unavailable — falling back to memory cache only.');
     return createFallbackDb('IndexedDB is not available on this host.');
   }
@@ -86,7 +85,6 @@ export async function openOpenMusicDb(
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       const req = factory.open(name, version);
       req.onupgradeneeded = (event) => {
-        // eslint-disable-next-line no-console
         console.warn('[openmusic] IndexedDB onupgradeneeded — creating stores');
         createStores(event);
       };
@@ -98,7 +96,6 @@ export async function openOpenMusicDb(
     });
     return wrap(database);
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.warn(
       '[openmusic] openOpenMusicDb failed:',
       error instanceof Error ? error.message : error,
